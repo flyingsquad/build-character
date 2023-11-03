@@ -163,13 +163,22 @@ export class BuildCharacter {
 	totalPoints = Number(game.settings.get('build-character', 'budget'));
 
 	async addItems(actor, itemList) {
-		for (let obj of itemList) {
-			const item = await fromUuid(obj.uuid);
+		for (let it of itemList) {
+			const item = await fromUuid(it.uuid);
 			if (item) {
 				// FIX: should use call that executes advancement steps.
 				actor.createEmbeddedDocuments("Item", [item]);
+				if (it.obj.features !== undefined) {
+					for (let f of it.obj.features) {
+						const feature = await fromUuid(f.uuid);
+						if (feature)
+							actor.createEmbeddedDocuments("Item", [feature]);
+						else
+							throw new Error(`Unable to add feature ${f.name} for ${it.name}`);
+					}
+				}
 			} else {
-				const msg = `Could not get item ${obj.name} (${obj.uuid})`
+				const msg = `Could not get item ${it.name} (${it.uuid})`
 				throw new Error(msg);
 			}
 		}
@@ -181,13 +190,26 @@ export class BuildCharacter {
 		let chosenRace = await this.getRace(actor);
 		if (!chosenRace)
 			return;
+
+		// This will be null if there is no subrace available, undefined if
+		// user exited.
+
+		let chosenSubrace = await this.getSubrace(actor, chosenRace[0].name);
+		if (chosenSubrace === undefined)
+			return;
 		
 		let chosenBackground = await this.getBackground(actor);
 		if (!chosenBackground)
 			return;
 
+		let chosenClass = await this.getClass(actor);
+		if (!chosenClass)
+			return;
+
 		await this.addItems(actor, chosenRace);
+		await this.addItems(actor, chosenSubrace);
 		await this.addItems(actor, chosenBackground);
+		await this.addItems(actor, chosenClass);
 		
 		await this.pointBuy(actor);
 	}
@@ -329,6 +351,68 @@ export class BuildCharacter {
 		});
 		return chosenRace;		
 	}
+
+	async getSubrace(actor, race) {
+		let subraces = [];
+
+		for (const pack of game.packs) {
+			if (pack.metadata.type === 'Item') {
+				for (let subrace of this.itemData.subraces) {
+					if (subrace.race != race)
+						continue;
+					let r = pack.index.find((obj) => obj.type == 'feat' && subrace.name == obj.name);
+					if (r) {
+						let include = this.itemData.exclusions.races.findIndex((r) => r == subrace.name) < 0;
+						if (include) subraces.push(
+							{
+								name: r.name,
+								pack: pack.metadata.id,
+								obj: subrace,
+								uuid: r.uuid
+							}
+						);
+					}
+				}
+			}
+		}
+
+		if (subraces.length == 0)
+			return null;
+		if (subraces.length == 1)
+			return subraces;
+
+		let title = "Select Subrace";
+		if (this.itemData?.customText?.subrace?.title)
+			title = this.itemData.customText.subrace.title;
+
+		let description = "Select your character's subrace.";
+		if (this.itemData?.customText?.subrace?.description)
+			description = this.itemData.customText.subrace.description;
+
+		let content = this.choiceContent(subraces, 1, description);
+		let chosenSubrace = undefined;
+		let result = await Dialog.wait({
+		  title: title,
+		  content: content,
+		  buttons: {
+			ok: {
+			  label: "OK",
+			  icon: '<i class="fas fa-angles-right"></i>',
+			  callback: async (html) => {
+				  chosenSubrace = this.getChoices(html, subraces);
+				  return true;
+			  },
+			},
+			cancel: {
+				label: "Cancel",
+				callback: (html) => { return false; }
+			},
+		  },
+		  default: "ok",
+		  render: (html) => { this.handleChoiceRender(this, html); }
+		});
+		return chosenSubrace;		
+	}
 	
 	async getBackground(actor) {
 		// List all the backgrounds found.
@@ -388,103 +472,49 @@ export class BuildCharacter {
 		});
 		return chosenBackground;		
 	}
-	
-	async getRacex(actor) {
-		let count = 0;
 
-		function handleRender(pb, html) {
-			html.on('change', html, (e) => {
-				// Allow just one checked item.
-				let html = e.data;
-				switch (e.target.nodeName) {
-				case 'INPUT':
-					if (e.target.checked)
-						count++;
-					else
-						count--;
-					if (count > 1) {
-						e.target.checked = false;
-						count--;
-					}
-					break;
-				}
-			});
-			html.on("click", ".showuuid", async (event) => {
-				// Open the window for the item whose UUID was clicked.
-				event.preventDefault();
-				const uuid = event.currentTarget.getAttribute("uuid");
-				if (!uuid) return;
-				const item = await fromUuid(uuid);
-				if (item) {
-					item.sheet.render(true);
-				}
-			});
-		}
-		
-		let content = `<div>`;
-
-		// List all the races found in the data files.
-		// Races have no identifying tags in the compendiums,
-		// so the only way to know a feature is a race is
-		// to check that it's in our list of races from our
-		// race .json file(s).
-
-		let races = [];
+	async getClass(actor) {
+		let classes = [];
 
 		for (const pack of game.packs) {
 			if (pack.metadata.type === 'Item') {
-				for (let race of this.itemData.races) {
-					let r = pack.index.find((obj) => obj.type == 'feat' && race.name == obj.name);
-					if (r) {
-						let include = this.itemData.exclusions.races.findIndex((r) => r == race.name) < 0;
-						if (include) races.push(
+				for (let cls of this.itemData.classes) {
+					let c = pack.index.find((obj) => obj.type == 'class' && cls.name == obj.name);
+					if (c) {
+						let include = this.itemData.exclusions.classes.findIndex((r) => r == cls.name) < 0;
+						if (include) classes.push(
 							{
-								name: r.name,
+								name: c.name,
 								pack: pack.metadata.id,
-								obj: race,
-								uuid: r.uuid
+								obj: cls,
+								uuid: c.uuid
 							}
 						);
 					}
 				}
 			}
 		}
-		
-		races.sort(function(a, b) {
-			return a.name.localeCompare(b.name);
-		});
-		let i = 0;
-		for (const r of races) {
-			content += `<input type="checkbox" id="${i}" name="race" value="${r.uuid}"></input><label for="race"><a class="control showuuid" uuid="${r.uuid}">${r.name}</a></label><br>\n`;
-			i++;
-		}
 
-		content += `</div>`;
+		let title = "Select Class";
+		if (this.itemData?.customText?.class?.title)
+			title = this.itemData.customText.class.title;
 
-		let chosenRace = undefined;
+		let description = "Select your character's class.";
+		if (this.itemData?.customText?.class?.description)
+			description = this.itemData.customText.class.description;
+
+		let content = this.choiceContent(classes, 1, description);
+		let chosenClass = undefined;
 		let result = await Dialog.wait({
-		  title: "Select Race",
+		  title: title,
 		  content: content,
 		  buttons: {
 			ok: {
 			  label: "OK",
 			  icon: '<i class="fas fa-angles-right"></i>',
 			  callback: async (html) => {
-				for (i = 0; i < races.length; i++) {
-					let cb = html.find(`#${i}`);
-					if (cb[0].checked) {
-						chosenRace = races[i].obj;
-						const item = await fromUuid(races[i].uuid);
-						if (item) {
-							// FIX: should use call that executes advancement steps.
-							actor.createEmbeddedDocuments("Item", [item]);
-						} else {
-							throw new Error(`Could not get item ${$races[i].uuid}`);
-						}
-						break;
-					}
-				}
-				return count > 0;
+				  chosenClass  = this.getChoices(html, classes);
+				  return true;
 			  },
 			},
 			cancel: {
@@ -493,111 +523,9 @@ export class BuildCharacter {
 			},
 		  },
 		  default: "ok",
-		  render: (html) => { handleRender(this, html); }
+		  render: (html) => { this.handleChoiceRender(this, html); }
 		});
-		return chosenRace;
-	}
-	
-	async getBackgroundx(actor) {
-		let count = 0;
-
-		function handleRender(pb, html) {
-			html.on('change', html, (e) => {
-				let html = e.data;
-				switch (e.target.nodeName) {
-				case 'INPUT':
-					if (e.target.checked)
-						count++;
-					else
-						count--;
-					if (count > 1) {
-						e.target.checked = false;
-						count--;
-					}
-					break;
-				}
-			});
-			html.on("click", ".showuuid", async (event) => {
-				// Open the window for the item whose UUID was clicked.
-				event.preventDefault();
-				const uuid = event.currentTarget.getAttribute("uuid");
-				if (!uuid) return;
-				const item = await fromUuid(uuid);
-				if (item) {
-					item.sheet.render(true);
-				}
-			});
-		}
-
-		
-		let content = `<div>`;
-
-		// List all the backgrounds found.
-
-		let bgs = [];
-
-		for (const pack of game.packs) {
-			if (pack.metadata.type === 'Item') {
-				for (const bg of pack.index) {
-					if (bg.type === 'background') {
-						let obj = {
-							name: bg.name,
-							pack: pack.metadata.id,
-							uuid: bg.uuid,
-							obj: bg
-						}
-						bgs.push(obj);
-					}
-				}
-			}
-		}
-		
-		bgs.sort(function(a, b) {
-			return a.name.localeCompare(b.name);
-		});
-		let i = 0;
-		for (const bg of bgs) {
-			content += `<input type="checkbox" id="${i}" name="bg" value="${bg.uuid}"></input><label for="bg"><a class="control showuuid" uuid="${bg.uuid}">${bg.name}</a></label><br>`;
-			i++;
-		}
-
-		content += `</div>`;
-
-		let chosenBackground = undefined;
-		let result = await Dialog.wait({
-		  title: "Select Background",
-		  content: content,
-		  buttons: {
-			ok: {
-			  label: "OK",
-			  icon: '<i class="fas fa-angles-right"></i>',
-			  callback: async (html) => {
-				for (i = 0; i < bgs.length; i++) {
-					let cb = html.find(`#${i}`);
-					if (cb[0].checked) {
-						chosenBackground = bgs[i].obj;
-						const item = await fromUuid(bgs[i].uuid);
-						if (item) {
-							// FIX: should use call that executes advancement steps.
-							actor.createEmbeddedDocuments("Item", [item]);
-						} else {
-							throw new Error(`Could not get item ${$bg[i].uuid}`);
-						}
-						break;
-					}
-				}
-				return count > 0;
-			  },
-			},
-			cancel: {
-				label: "Cancel",
-				callback: (html) => { return false; }
-			},
-		  },
-		  default: "ok",
-		  render: (html) => { handleRender(this, html); }
-		});
-		return chosenBackground;
+		return chosenClass;		
 	}
 
 	async pointBuy(actor) {

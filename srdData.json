@@ -131,12 +131,20 @@
 	],
 	"classes": [
 		{
+			"name": "Barbarian"
+		},
+		{
+			"name": "Bard"
+		},
+		{
 			"name": "Cleric",
 			"skills": [
 				{"choose": 2, "options": ["his", "ins", "med", "per", "rel"]}
 			],
+			"saves": [
+				"Wisdom", "Charisma"
+			],
 			"features": [
-				{"name": "Shelter of the Faithful", "uuid": "Compendium.dnd5e.backgrounds.Item.64N1NWh9kC1dI7zN"}
 			],
 			"languages": [
 				{"choose": 1}
@@ -149,9 +157,59 @@
 			"weapons": [
 				{"name": "sim"}
 			]
+		},
+		{
+			"name": "Druid"
+		},
+		{
+			"name": "Fighter",
+			"skills": [
+				{"choose": 2, "options": ["acr", "ath", "ani", "his", "ins", "itm", "prc", "sur"]}
+			],
+			"features": [
+			],
+			"saves": [
+				"Strength", "Constitution"
+			],
+			"languages": [
+				{"choose": 1}
+			],
+			"armor": [
+				{"name": "lgt"},
+				{"name": "med"},
+				{"name": "hvy"},
+				{"name": "shl"}
+			],
+			"weapons": [
+				{"name": "sim"},
+				{"name": "mar"}
+			]
+		},
+		{
+			"name": "Monk"
+		},
+		{
+			"name": "Ranger"
+		},
+		{
+			"name": "Sorcerer"
+		},
+		{
+			"name": "Warlock"
+		},
+		{
+			"name": "Wizard"
 		}
 	],
 	"subclasses": [
+		{
+			"name": "Life Domain",
+			"class": "Cleric"
+		},
+		{
+			"name": "Champion",
+			"class": "Fighter"
+		}
 	],
 	"customlanguages" : [
 		"Latin",
