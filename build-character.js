@@ -49,6 +49,7 @@ export class BuildCharacter {
 		this.itemData.classes = [];
 		this.itemData.backgrounds = [];
 		this.itemData.customLanguages = [];
+		this.itemData.customText = {};
 		
 		let fileNames = game.settings.get('build-character', 'datafiles').split(/; */);
 		
@@ -91,6 +92,11 @@ export class BuildCharacter {
 			}
 			if (data.exclusions && this.itemData.exclusions === undefined)
 				this.itemData.exclusions = data.exclusions;
+			if (data.customText) {
+				Object.keys(data.customText).forEach((t) => {
+					this.itemData.customText[t] = data.customText[t];
+				});
+			}
 		}
 	}
 	
@@ -155,9 +161,23 @@ export class BuildCharacter {
 	};
 
 	totalPoints = Number(game.settings.get('build-character', 'budget'));
-	
+
+	async addItems(actor, itemList) {
+		for (let obj of itemList) {
+			const item = await fromUuid(obj.uuid);
+			if (item) {
+				// FIX: should use call that executes advancement steps.
+				actor.createEmbeddedDocuments("Item", [item]);
+			} else {
+				const msg = `Could not get item ${obj.name} (${obj.uuid})`
+				throw new Error(msg);
+			}
+		}
+	}
+
 	async buildCharacter(actor) {
 		await this.readItemData();
+
 		let chosenRace = await this.getRace(actor);
 		if (!chosenRace)
 			return;
@@ -165,10 +185,211 @@ export class BuildCharacter {
 		let chosenBackground = await this.getBackground(actor);
 		if (!chosenBackground)
 			return;
+
+		await this.addItems(actor, chosenRace);
+		await this.addItems(actor, chosenBackground);
+		
 		await this.pointBuy(actor);
 	}
 	
+	choiceContent(choices, limit, description) {
+		let content = `<style>
+			desc: {
+				font-size: 11px;
+			}
+			choice: {
+				font-family: "Modesto Condensed", "Palatino Linotype", serif;
+				font-size: 20px;
+				font-weight: 700;
+			}
+			.vcenter {
+				align-items: center;
+				display: flex;
+			}
+		</style>\n`;
+		if (description)
+			content = `<div class="desc">${description}</div>`;
+		
+		if (limit) {
+			content += `<p class="modesto">Choice <span id="count">0</span> of <span id="limit">${limit}</span></p>`;
+		}
+		
+		content += `<div style="padding-bottom: 12px">`;
+
+		choices.sort(function(a, b) {
+			return a.name.localeCompare(b.name);
+		});
+		let i = 0;
+		for (const r of choices) {
+			content += `<div class="vcenter"><input type="checkbox" id="${i}" name="c${i}" value="${r.uuid}"></input><label for="c${i}"><a class="control showuuid" uuid="${r.uuid}">${r.name}</a></label></div>\n`;
+			i++;
+		}
+
+		content += `</div>`;
+		return content;
+	}
+	
+	
+	handleChoiceRender(pb, html) {
+		html.on('change', html, (e) => {
+			// Limit number of checked items, handle clicking items to show compendium data.
+			let html = e.data;
+			switch (e.target.nodeName) {
+			case 'INPUT':
+				let lim = html.find("#limit");
+				let limit = lim[0].innerText;
+				limit = parseInt(limit);
+				let cnt = html.find("#count");
+				let count = parseInt(cnt[0].innerText);
+				if (e.target.checked)
+					count++;
+				else
+					count--;
+				if (count > 1) {
+					e.target.checked = false;
+					count--;
+				}
+				cnt.text(count);
+				break;
+			}
+		});
+		html.on("click", ".showuuid", async (event) => {
+			// Open the window for the item whose UUID was clicked.
+			event.preventDefault();
+			const uuid = event.currentTarget.getAttribute("uuid");
+			if (!uuid) return;
+			const item = await fromUuid(uuid);
+			if (item) {
+				item.sheet.render(true);
+			}
+		});
+	}
+
+	getChoices(html, choices) {
+		let selections = [];
+		for (let i = 0; i < choices.length; i++) {
+			let cb = html.find(`#${i}`);
+			if (cb[0].checked)
+				selections.push(choices[i]);
+		}
+		return selections;
+	}
+	
 	async getRace(actor) {
+		let races = [];
+
+		for (const pack of game.packs) {
+			if (pack.metadata.type === 'Item') {
+				for (let race of this.itemData.races) {
+					let r = pack.index.find((obj) => obj.type == 'feat' && race.name == obj.name);
+					if (r) {
+						let include = this.itemData.exclusions.races.findIndex((r) => r == race.name) < 0;
+						if (include) races.push(
+							{
+								name: r.name,
+								pack: pack.metadata.id,
+								obj: race,
+								uuid: r.uuid
+							}
+						);
+					}
+				}
+			}
+		}
+
+		let title = "Select Race";
+		if (this.itemData?.customText?.race?.title)
+			title = this.itemData.customText.race.title;
+
+		let description = "Select your character's race.";
+		if (this.itemData?.customText?.race?.description)
+			description = this.itemData.customText.race.description;
+
+		let content = this.choiceContent(races, 1, description);
+		let chosenRace = undefined;
+		let result = await Dialog.wait({
+		  title: title,
+		  content: content,
+		  buttons: {
+			ok: {
+			  label: "OK",
+			  icon: '<i class="fas fa-angles-right"></i>',
+			  callback: async (html) => {
+				  chosenRace = this.getChoices(html, races);
+				  return true;
+			  },
+			},
+			cancel: {
+				label: "Cancel",
+				callback: (html) => { return false; }
+			},
+		  },
+		  default: "ok",
+		  render: (html) => { this.handleChoiceRender(this, html); }
+		});
+		return chosenRace;		
+	}
+	
+	async getBackground(actor) {
+		// List all the backgrounds found.
+
+		let bgs = [];
+
+		for (const pack of game.packs) {
+			if (pack.metadata.type === 'Item') {
+				for (let bg of this.itemData.backgrounds) {
+					let b = pack.index.find((obj) => obj.type == 'background' && bg.name == obj.name);
+					if (b) {
+						let exclude = false;
+						if (this.itemData?.exclusions?.backgrounds !== undefined)
+							exclude = this.itemData.exclusions.backgrounds.findIndex((b) => b == bg.name);
+						if (!exclude) bgs.push(
+							{
+								name: b.name,
+								pack: pack.metadata.id,
+								obj: bg,
+								uuid: b.uuid
+							}
+						);
+					}
+				}
+			}
+		}
+
+		let title = "Select Background";
+		if (this.itemData?.customText?.background?.title)
+			title = this.itemData.customText.background.title;
+
+		let description = "Select your character's background.";
+		if (this.itemData?.customText?.background?.description)
+			description = this.itemData.customText.background.description;
+
+		let content = this.choiceContent(bgs, 1, description);
+		let chosenBackground = undefined;
+		let result = await Dialog.wait({
+		  title: title,
+		  content: content,
+		  buttons: {
+			ok: {
+			  label: "OK",
+			  icon: '<i class="fas fa-angles-right"></i>',
+			  callback: async (html) => {
+				  chosenBackground = this.getChoices(html, bgs);
+				  return true;
+			  },
+			},
+			cancel: {
+				label: "Cancel",
+				callback: (html) => { return false; }
+			},
+		  },
+		  default: "ok",
+		  render: (html) => { this.handleChoiceRender(this, html); }
+		});
+		return chosenBackground;		
+	}
+	
+	async getRacex(actor) {
 		let count = 0;
 
 		function handleRender(pb, html) {
@@ -220,7 +441,7 @@ export class BuildCharacter {
 							{
 								name: r.name,
 								pack: pack.metadata.id,
-								race: race,
+								obj: race,
 								uuid: r.uuid
 							}
 						);
@@ -252,7 +473,7 @@ export class BuildCharacter {
 				for (i = 0; i < races.length; i++) {
 					let cb = html.find(`#${i}`);
 					if (cb[0].checked) {
-						chosenRace = races[i].race;
+						chosenRace = races[i].obj;
 						const item = await fromUuid(races[i].uuid);
 						if (item) {
 							// FIX: should use call that executes advancement steps.
@@ -277,7 +498,7 @@ export class BuildCharacter {
 		return chosenRace;
 	}
 	
-	async getBackground(actor) {
+	async getBackgroundx(actor) {
 		let count = 0;
 
 		function handleRender(pb, html) {
@@ -323,7 +544,7 @@ export class BuildCharacter {
 							name: bg.name,
 							pack: pack.metadata.id,
 							uuid: bg.uuid,
-							background: bg
+							obj: bg
 						}
 						bgs.push(obj);
 					}
@@ -354,7 +575,7 @@ export class BuildCharacter {
 				for (i = 0; i < bgs.length; i++) {
 					let cb = html.find(`#${i}`);
 					if (cb[0].checked) {
-						chosenBackground = bgs[i].background;
+						chosenBackground = bgs[i].obj;
 						const item = await fromUuid(bgs[i].uuid);
 						if (item) {
 							// FIX: should use call that executes advancement steps.
