@@ -14,32 +14,20 @@ export class BuildCharacter {
 	  Wisdom: 0,
 	  Charisma: 0,
 	};
-	choose = "";
 
-	isRace(name) {
-		let info = '';
-		let r = this.itemData.races.find( (r) => r.name == name);
-		if (r === undefined) {
-			r = this.itemData.subraces.find( (r) => r.name == name);
-			if (r === undefined)
-				return false;
-		}
-		
-		for (const [key, value] of Object.entries(r.abilities)) {
+	setAbilityBonuses(r) {
+		let info = "";
+		for (const [key, value] of Object.entries(r.obj.abilities)) {
 			switch (key) {
 			case 'description':
-				info = value;
+				info = `<strong>${r.name}</strong> ${value}`;
 				break;
 			default:
 				this.racialBonus[key] += value;
 				break;
 			}
 		}
-		
-		if (this.choose)
-			this.choose += '<br>';
-		this.choose += `<strong>${name}</strong> ${info}`;
-		return true;
+		return info;
 	}
 	
 	async readItemData() {
@@ -187,6 +175,25 @@ export class BuildCharacter {
 	async buildCharacter(actor) {
 		await this.readItemData();
 
+		this.actor = actor;
+
+		let hasBackground = actor.items.find(it => it.type == 'background');
+		let hasRace = actor.items.find(it => {
+				if (it.type == 'feat')
+					return this.itemData.races.find(r => it.name == r.name);
+				return false;
+			}
+		);
+		if (actor.system.details.level > 0 || hasBackground || hasRace) {
+			Dialog.prompt({
+				title: "Not Starting Character",
+				content: `<p>Only starting characters may use the character builder.</p>
+				<p>${actor.name} has a background, race or class.</p>`,
+				label: "OK"
+			});
+			return false;
+		}
+		
 		let chosenRace = await this.getRace(actor);
 		if (!chosenRace)
 			return;
@@ -202,16 +209,22 @@ export class BuildCharacter {
 		if (!chosenBackground)
 			return;
 
+		let result = await this.pointBuy(actor, chosenRace[0], chosenSubrace[0]);
+		if (!result)
+			return;
+
 		let chosenClass = await this.getClass(actor);
 		if (!chosenClass)
+			return;
+		let chosenSubclass = await this.getSubclass(actor, chosenClass[0].name);
+		if (!chosenSubclass)
 			return;
 
 		await this.addItems(actor, chosenRace);
 		await this.addItems(actor, chosenSubrace);
 		await this.addItems(actor, chosenBackground);
+		await this.addItems(actor, chosenSubclass);
 		await this.addItems(actor, chosenClass);
-		
-		await this.pointBuy(actor);
 	}
 	
 	choiceContent(choices, limit, description) {
@@ -528,28 +541,78 @@ export class BuildCharacter {
 		return chosenClass;		
 	}
 
-	async pointBuy(actor) {
-		this.actor = actor;
+	async getSubclass(actor, cls) {
+		let subclasses = [];
 
-		if (actor.system.details.level > 0) {
-			Dialog.prompt({
-				title: "Character Level Too High",
-				content: `<p>Only level 0 characters can use Build Character.</p>
-				<p>${actor.name} is level ${actor.system.details.level}</p>`,
-				label: "OK"
-			});
-			return false;
+		for (const pack of game.packs) {
+			if (pack.metadata.type === 'Item') {
+				for (let subclass of this.itemData.subclasses) {
+					if (subclass.class != cls)
+						continue;
+					let s = pack.index.find((obj) => obj.type == 'subclass' && subclass.name == obj.name);
+					if (s) {
+						let include = this.itemData.exclusions.subclasses.findIndex((s) => s == subclass.name) < 0;
+						if (include) subclasses.push(
+							{
+								name: s.name,
+								pack: pack.metadata.id,
+								obj: subclass,
+								uuid: s.uuid
+							}
+						);
+					}
+				}
+			}
 		}
 
-		let races = this.actor.items.filter(it => it.type == 'feat' && this.isRace(it.name));
+		if (subclasses.length == 0)
+			return null;
+		if (subclasses.length == 1)
+			return subclasses;
+
+		let title = "Select Subclass";
+		if (this.itemData?.customText?.subclass?.title)
+			title = this.itemData.customText.subclass.title;
+
+		let description = "Select your character's subclass.";
+		if (this.itemData?.customText?.subclass?.description)
+			description = this.itemData.customText.subclass.description;
+
+		let content = this.choiceContent(subclasses, 1, description);
+		let chosenSubclass = undefined;
+		let result = await Dialog.wait({
+		  title: title,
+		  content: content,
+		  buttons: {
+			ok: {
+			  label: "OK",
+			  icon: '<i class="fas fa-angles-right"></i>',
+			  callback: async (html) => {
+				  chosenSubclass = this.getChoices(html, subclasses);
+				  return true;
+			  },
+			},
+			cancel: {
+				label: "Cancel",
+				callback: (html) => { return false; }
+			},
+		  },
+		  default: "ok",
+		  render: (html) => { this.handleChoiceRender(this, html); }
+		});
+		return chosenSubclass;		
+	}
+
+	async pointBuy(actor, race, subrace) {
+		let choose = this.setAbilityBonuses(race);
+		if (subrace) {
+			let info = this.setAbilityBonuses(subrace);
+			if (info)
+				choose += "<br>" + info;
+		}
 
 		let prepend = '';
 
-		if (races.length == 0) {
-				prepend = `<p>There are no recognized races in Features.</p>
-				<p>If there are any racial bonuses for any abilities you will need to enter them manually in the <b>Racial Bonus</b> field for those abilities.`;
-		}
-		
 		this.abilities['Strength'] = actor.system.abilities.str.value;
 		this.abilities['Dexterity'] = actor.system.abilities.dex.value;
 		this.abilities['Constitution'] = actor.system.abilities.con.value;
@@ -568,7 +631,7 @@ export class BuildCharacter {
 			  <p>Each ability costs a number of points. You have a total of ${this.totalPoints} points to spend. Racial bonuses can reduce the cost of abilities.</p>
 			  <p><strong>Ability Costs</strong> 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9</p>`;
 		if (this.choose)
-			content += `<p>${this.choose}</p>`;
+			content += `<p>${choose}</p>`;
 		content +=
 			  `<p>Remaining Points: <span id="remainingPoints">${this.totalPoints}</span></p>
 			  <table>
@@ -604,7 +667,7 @@ export class BuildCharacter {
 			});
 		}
 
-		let dlg = await Dialog.wait({
+		let result = await Dialog.wait({
 		  title: "Point Buy Ability Scores",
 		  content: content,
 		  buttons: {
@@ -638,6 +701,7 @@ export class BuildCharacter {
 				  // Show an error message if the point allocation is invalid
 				  throw new Error(`You need to spend exactly ${this.totalPoints} points. You spent ${usedPoints}.`);
 				}
+				return true;
 			  },
 			},
 			cancel: {
@@ -648,6 +712,7 @@ export class BuildCharacter {
 		  default: "ok",
 		  render: (html) => { handleRender(this, html); }
 		});
+		return result;
 	}
 	
 	finish() {
