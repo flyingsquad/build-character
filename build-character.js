@@ -12,11 +12,22 @@ export class BuildCharacter {
 	  Constitution: 0,
 	  Intelligence: 0,
 	  Wisdom: 0,
-	  Charisma: 0,
+	  Charisma: 0
+	};
+	abilityNames = {
+	  Strength: 'str',
+	  Dexterity: 'dex',
+	  Constitution: 'con',
+	  Intelligence: 'int',
+	  Wisdom: 'wis',
+	  Charisma: 'cha'
 	};
 
 	setAbilityBonuses(r) {
 		let info = "";
+		if (r.obj.abilities === undefined)
+			return info;
+
 		for (const [key, value] of Object.entries(r.obj.abilities)) {
 			switch (key) {
 			case 'description':
@@ -30,6 +41,12 @@ export class BuildCharacter {
 		return info;
 	}
 	
+	/**	Read the JSON files that describe what actions to take for each item.
+	 *	These supply data like the skills available, character size, ability
+	 *	bonuses for races, darkvision range, etc. The names must match the
+	 *	compendium entries exactly.
+	 */
+
 	async readItemData() {
 		this.itemData.races = [];
 		this.itemData.subraces = [];
@@ -39,12 +56,19 @@ export class BuildCharacter {
 		this.itemData.customLanguages = [];
 		this.itemData.customText = {};
 		
-		let fileNames = game.settings.get('build-character', 'datafiles').split(/; */);
+		let fileNames = [
+			game.settings.get('build-character', 'auxdata'),
+			game.settings.get('build-character', 'worlddata'),
+			game.settings.get('build-character', 'customdata'),
+			game.settings.get('build-character', 'maindata')
+		];
 		
 		// Don't add duplicate entries. User can override definitions by placing their
 		// custom file first in the datafiles setting.
 
 		for (let file of fileNames) {
+			if (!file)
+				continue;
 			let response = await fetch(file);
 			if (!response.ok) {
 				ui.notifications.warn(`Unable to read character build data file ${file}`);
@@ -56,8 +80,10 @@ export class BuildCharacter {
 			try {
 				data = JSON.parse(json);
 			} catch (msg) {
-				console.log(`JSON format error: ${msg}.` );
-				ui.notifications.warn(`JSON format error: ${msg}.`);
+				const confirmation = await Dialog.prompt({
+					content: `<p>${file}</p><p>JSON format error: ${msg}.</p>`
+				});
+				ui.notifications.warn(`${file}: JSON format error: ${msg}.`);
 			}
 			
 			function additems(itemData, list) {
@@ -69,6 +95,7 @@ export class BuildCharacter {
 					}
 				}
 			}
+
 			additems(this.itemData.races, data.races);
 			additems(this.itemData.subraces, data.subraces);
 			additems(this.itemData.classes, data.classes);
@@ -78,6 +105,10 @@ export class BuildCharacter {
 				for (let lang of data.customLanguages)
 					this.itemData.customLanguages.push(lang);
 			}
+
+			// Only allow one set of exclusions, which should be included in the
+			// first data file listed, usually stored in the world folder.
+
 			if (data.exclusions && this.itemData.exclusions === undefined)
 				this.itemData.exclusions = data.exclusions;
 			if (data.customText) {
@@ -152,6 +183,8 @@ export class BuildCharacter {
 
 	async addItems(actor, itemList) {
 		for (let it of itemList) {
+			if (it == null)
+				continue;
 			const item = await fromUuid(it.uuid);
 			if (item) {
 				// FIX: should use call that executes advancement steps.
@@ -171,6 +204,65 @@ export class BuildCharacter {
 			}
 		}
 	}
+
+	flexCSS = `<style>
+				.container {
+					display: flex;
+					flex-wrap: nowrap;
+					align-items: center;
+				}
+				.input {
+					flex-grow: 4;
+				}
+				.label {
+					flex-grow: 1;
+				}
+			</style>`;
+
+	async createCharacter() {
+		let name = "";
+		let result;
+		result = await doDialog({
+		  title: "Build Character",
+		  content: this.flexCSS + `<div class="container">
+				<label class="label" for="name">Name&nbsp;&nbsp;</label>
+				<input class="input" type="text" id="name" name="name" autofocus>
+			</div><br>`,
+		  buttons: {
+			create: {
+			  label: "Create Character",
+			  icon: '<i class="fas fa-angles-right"></i>',
+			  callback: async (html) => {
+				  name = html.find("#name").val();
+				  return true;
+			  },
+			},
+			cancel: {
+				label: "Cancel",
+				callback: (html) => { return false; }
+			},
+		  },
+		  default: "create",
+		  render: (html) => {
+			  html.find("#name").focus();
+			}
+		});
+
+		if (!result || !name)
+			return false;
+		
+		let actor = await Actor.create({
+		  name: name,
+		  type: "character",
+		  img: game.settings.get('build-character', 'defaultportrait')
+		});
+		// FIX: set the default token as well.
+		await actor.update({"prototypeToken.texture.src": game.settings.get('build-character', 'defaulttoken')});
+
+		actor.sheet.render(true)
+		await this.buildCharacter(actor);
+	}
+
 
 	async buildCharacter(actor) {
 		await this.readItemData();
@@ -201,52 +293,208 @@ export class BuildCharacter {
 		// This will be null if there is no subrace available, undefined if
 		// user exited.
 
-		let chosenSubrace = await this.getSubrace(actor, chosenRace[0].name);
+		let chosenSubrace = await this.getSubrace(actor, chosenRace.name);
 		if (chosenSubrace === undefined)
 			return;
+		
+		if (chosenSubrace != null) {
+			actor.update({"data.details.race": chosenSubrace.name});
+		} else
+			actor.update({"data.details.race": chosenRace.name});
 		
 		let chosenBackground = await this.getBackground(actor);
 		if (!chosenBackground)
 			return;
 
-		let result = await this.pointBuy(actor, chosenRace[0], chosenSubrace[0]);
+		let result = await this.pointBuy(actor, chosenRace, chosenSubrace);
 		if (!result)
 			return;
 
 		let chosenClass = await this.getClass(actor);
 		if (!chosenClass)
 			return;
-		let chosenSubclass = await this.getSubclass(actor, chosenClass[0].name);
-		if (!chosenSubclass)
+		let chosenSubclass = await this.getSubclass(actor, chosenClass.name);
+		// null subclass allowed.
+		if (chosenSubclass === undefined)
 			return;
-
-		await this.addItems(actor, chosenRace);
-		await this.addItems(actor, chosenSubrace);
-		await this.addItems(actor, chosenBackground);
-		await this.addItems(actor, chosenSubclass);
-		await this.addItems(actor, chosenClass);
+		
+		result = await this.chooseSkills(actor, [chosenRace, chosenSubrace, chosenBackground, chosenClass, chosenSubclass]);
+		if (!result)
+			return;
+		await this.addItems(actor, [chosenRace, chosenSubrace, chosenBackground, chosenSubclass]);
+		await this.setOtherData(actor, [chosenRace, chosenSubrace, chosenBackground, chosenClass, chosenSubclass]);
+		await this.addItems(actor, [chosenClass]);
 	}
 	
+	skillName(key) {
+		if (CONFIG.DND5E.skills[key] === undefined)
+			return key;
+		return CONFIG.DND5E.skills[key].label;
+	}
+
+	/**	Set data like saves, darkvision, etc.
+	 */
+
+	async setOtherData(actor, features) {
+		for (const f of features) {
+			if (!f)
+				continue;
+			if (f.obj.saves !== undefined) {
+				for (const save of f.obj.saves)
+					actor.update({[`data.abilities.${this.abilityNames[save]}.proficient`]: 1});
+			}
+			if (f.obj.darkvision) {
+				if (actor.system.attributes.senses.darkvision < f.obj.darkvision) {
+					actor.update({"data.attributes.senses.darkvision": f.obj.darkvision});
+					actor.update({"prototypeToken.sight.range": f.obj.darkvision});
+				}
+				
+			}
+			if (f.obj.size) {
+				if (actor.system.traits.size != f.obj.size)
+					actor.update({"data.traits.size": f.obj.size});
+			}
+			if (f.obj.speed) {
+				if (actor.system.attributes.movement.walk != f.obj.speed)
+					actor.update({"data.attributes.movement.walk": f.obj.speed});
+			}
+			if (f.obj.armor) {
+				//let armor = structuredClone(actor.system.traits.armorProf);
+				let armor = actor.system.traits.armorProf;
+				let changed = false;
+				for (let a of f.obj.armor) {
+					if (!armor.value.has(a.name)) {
+						armor.value.add(a.name);
+						changed = true;
+					}
+				}
+				if (changed)
+					actor.update({"data.traits.armorProf": armor});
+			}
+		}
+	}
+
+	async chooseSkills(actor, features) {
+		// Get the granted skills.
+		let grantedSkills = [];
+		let choices = [];
+		for (const f of features) {
+			if (!f || f.obj.skills === undefined)
+				continue;
+			for (const skill of f.obj.skills) {
+				if (skill.name != undefined) {
+					// Add this skill to the list granted, but if it's already
+					// granted by some other feature, allow the user to pick a
+					// replacement for it.
+
+					if (grantedSkills.find(s => s == skill.name)) {
+						const skname = this.skillName(skill.name);
+						choices.push({choose: 1, reason: `${f.obj.name}: another feature already granted the skill ${skname}. Pick another skill in its place.`});
+					} else
+						grantedSkills.push(skill.name);
+				}
+				if (skill.choose != undefined) {
+					// User gets to choose some skills.
+					choices.push({choose: skill.choose, options: skill.options,
+						reason: `Choose skill(s) for ${f.name}`});
+				}
+			}
+		}
+		
+		if (choices.length > 0) {
+			for (const choice of choices) {
+				let selected = await this.pickSkills(choice, grantedSkills);
+				if (!selected || selected.length == 0)
+					return false;
+				for (let i = 0; i < selected.length; i++)
+					grantedSkills.push(selected[i]);
+			}
+		}
+		
+		for (const skill of grantedSkills)
+			actor.update({[`data.skills.${skill}.value`]: 1});
+		
+		return true;
+	}
+	
+	
+	async pickSkills(choice, grantedSkills) {
+		let allSkills = ["acr", "ani", "arc", "ath", "dec", "his", "ins", "itm", "inv", "med", "nat", "prc", "prf", "per", "rel", "slt", "ste", "sur"];	
+		let list = choice.options != undefined ? choice.options : allSkills;
+		let skills = [];
+		for (let skill of list) {
+			if (grantedSkills.find(s => s == skill))
+				continue;
+			skills.push(
+				{name: this.skillName(skill), code: skill}
+			);
+		}
+		let alreadySelected = [];
+		for (let s of grantedSkills) {
+			alreadySelected.push(this.skillName(s));
+		}
+		let prompt = `<p>${choice.reason}</p>`;
+		if (alreadySelected.length > 0) {
+			let str = alreadySelected.join(', ');
+			prompt += `<p style="left-margin: .2in">Already selected: ${str}</p>\n`;
+		}
+
+		let content = this.choiceContent(skills, choice.choose, prompt);
+		let pickedSkills = [];
+		let result = await doDialog({
+		  title: "Choose Skills",
+		  content: content,
+		  buttons: {
+			ok: {
+			  label: "OK",
+			  icon: '<i class="fas fa-angles-right"></i>',
+			  callback: async (html) => {
+				  let chosenSkills = this.getChoices(html, skills);
+				  for (let skill of chosenSkills)
+					  pickedSkills.push(skill.code);
+				  return true;
+			  },
+			},
+			cancel: {
+				label: "Cancel",
+				callback: (html) => { return null; }
+			},
+		  },
+		  default: "ok",
+		  render: (html) => { this.handleChoiceRender(this, html); }
+		});
+		return pickedSkills;
+	}
+
 	choiceContent(choices, limit, description) {
 		let content = `<style>
 			desc: {
-				font-size: 11px;
+				font-size: 9px;
 			}
-			choice: {
+			choices: {
 				font-family: "Modesto Condensed", "Palatino Linotype", serif;
 				font-size: 20px;
 				font-weight: 700;
+				border-top: 1pt solid;
+				border-bottom: 1pt solid;
+				border-color: maroon;
 			}
 			.vcenter {
 				align-items: center;
 				display: flex;
 			}
+			.checkbox {
+				flex-grow: 1;
+			}
+			.label {
+				flex-grow: 4;
+			}
 		</style>\n`;
 		if (description)
-			content = `<div class="desc">${description}</div>`;
+			content += `<div class="desc">${description}</div>`;
 		
 		if (limit) {
-			content += `<p class="modesto">Choice <span id="count">0</span> of <span id="limit">${limit}</span></p>`;
+			content += `<p class="choices">Choice <span id="count">0</span> of <span id="limit">${limit}</span></p>`;
 		}
 		
 		content += `<div style="padding-bottom: 12px">`;
@@ -256,7 +504,15 @@ export class BuildCharacter {
 		});
 		let i = 0;
 		for (const r of choices) {
-			content += `<div class="vcenter"><input type="checkbox" id="${i}" name="c${i}" value="${r.uuid}"></input><label for="c${i}"><a class="control showuuid" uuid="${r.uuid}">${r.name}</a></label></div>\n`;
+			let text;
+			if (r.uuid)
+				text = `<div class="vcenter">
+					<input class="checkbox" type="checkbox" id="${i}" name="c${i}" value="${r.uuid}"></input>
+					<label class="label" for="c${i}"><a class="control showuuid" uuid="${r.uuid}">${r.name}</a></label>
+					</div>\n`;
+			else
+				text = `<div class="vcenter"><input type="checkbox" id="${i}" name="c${i}" value="${r.code}"></input><label for="c${i}">${r.name}</label></div>\n`;
+			content += text;
 			i++;
 		}
 
@@ -280,7 +536,7 @@ export class BuildCharacter {
 					count++;
 				else
 					count--;
-				if (count > 1) {
+				if (count > limit) {
 					e.target.checked = false;
 					count--;
 				}
@@ -318,7 +574,9 @@ export class BuildCharacter {
 				for (let race of this.itemData.races) {
 					let r = pack.index.find((obj) => obj.type == 'feat' && race.name == obj.name);
 					if (r) {
-						let include = this.itemData.exclusions.races.findIndex((r) => r == race.name) < 0;
+						let include = true;
+						if (this.itemData?.exclusions?.races)
+							include = this.itemData.exclusions.races.findIndex((r) => r == race.name) < 0;
 						if (include) races.push(
 							{
 								name: r.name,
@@ -362,7 +620,7 @@ export class BuildCharacter {
 		  default: "ok",
 		  render: (html) => { this.handleChoiceRender(this, html); }
 		});
-		return chosenRace;		
+		return chosenRace[0];		
 	}
 
 	async getSubrace(actor, race) {
@@ -375,7 +633,9 @@ export class BuildCharacter {
 						continue;
 					let r = pack.index.find((obj) => obj.type == 'feat' && subrace.name == obj.name);
 					if (r) {
-						let include = this.itemData.exclusions.races.findIndex((r) => r == subrace.name) < 0;
+						let include = true;
+						if (this.itemData?.exclusions?.races)
+							include = this.itemData.exclusions.races.findIndex((r) => r == subrace.name) < 0;
 						if (include) subraces.push(
 							{
 								name: r.name,
@@ -392,13 +652,13 @@ export class BuildCharacter {
 		if (subraces.length == 0)
 			return null;
 		if (subraces.length == 1)
-			return subraces;
+			return subraces[0];
 
 		let title = "Select Subrace";
 		if (this.itemData?.customText?.subrace?.title)
 			title = this.itemData.customText.subrace.title;
 
-		let description = "Select your character's subrace.";
+		let description = `Select the subrace for ${race}.`;
 		if (this.itemData?.customText?.subrace?.description)
 			description = this.itemData.customText.subrace.description;
 
@@ -424,7 +684,7 @@ export class BuildCharacter {
 		  default: "ok",
 		  render: (html) => { this.handleChoiceRender(this, html); }
 		});
-		return chosenSubrace;		
+		return chosenSubrace[0];		
 	}
 	
 	async getBackground(actor) {
@@ -483,7 +743,7 @@ export class BuildCharacter {
 		  default: "ok",
 		  render: (html) => { this.handleChoiceRender(this, html); }
 		});
-		return chosenBackground;		
+		return chosenBackground[0];
 	}
 
 	async getClass(actor) {
@@ -494,7 +754,9 @@ export class BuildCharacter {
 				for (let cls of this.itemData.classes) {
 					let c = pack.index.find((obj) => obj.type == 'class' && cls.name == obj.name);
 					if (c) {
-						let include = this.itemData.exclusions.classes.findIndex((r) => r == cls.name) < 0;
+						let include = true;
+						if (this.itemData?.exclusions?.classes)
+							include = this.itemData.exclusions.classes.findIndex((r) => r == cls.name) < 0;
 						if (include) classes.push(
 							{
 								name: c.name,
@@ -538,7 +800,7 @@ export class BuildCharacter {
 		  default: "ok",
 		  render: (html) => { this.handleChoiceRender(this, html); }
 		});
-		return chosenClass;		
+		return chosenClass[0];
 	}
 
 	async getSubclass(actor, cls) {
@@ -551,7 +813,9 @@ export class BuildCharacter {
 						continue;
 					let s = pack.index.find((obj) => obj.type == 'subclass' && subclass.name == obj.name);
 					if (s) {
-						let include = this.itemData.exclusions.subclasses.findIndex((s) => s == subclass.name) < 0;
+						let include = true;
+						if (this.itemData?.exclusions?.subclasses)
+							include = this.itemData.exclusions.subclasses.findIndex((s) => s == subclass.name) < 0;
 						if (include) subclasses.push(
 							{
 								name: s.name,
@@ -568,7 +832,7 @@ export class BuildCharacter {
 		if (subclasses.length == 0)
 			return null;
 		if (subclasses.length == 1)
-			return subclasses;
+			return subclasses[0];
 
 		let title = "Select Subclass";
 		if (this.itemData?.customText?.subclass?.title)
@@ -600,7 +864,7 @@ export class BuildCharacter {
 		  default: "ok",
 		  render: (html) => { this.handleChoiceRender(this, html); }
 		});
-		return chosenSubclass;		
+		return chosenSubclass[0];		
 	}
 
 	async pointBuy(actor, race, subrace) {
@@ -630,7 +894,7 @@ export class BuildCharacter {
 		let content = `<form>
 			  <p>Each ability costs a number of points. You have a total of ${this.totalPoints} points to spend. Racial bonuses can reduce the cost of abilities.</p>
 			  <p><strong>Ability Costs</strong> 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9</p>`;
-		if (this.choose)
+		if (choose)
 			content += `<p>${choose}</p>`;
 		content +=
 			  `<p>Remaining Points: <span id="remainingPoints">${this.totalPoints}</span></p>
@@ -735,8 +999,25 @@ export class BuildCharacter {
 		  console.log(`build-character | dropped item on ${actor.name}.`);
 		});
 		*/
+		Hooks.on("postCreateEmbeddedData", async function(actor, sheet, data) {
+		  console.log(`build-character | postCreateEmbeddedData ${actor.name}.`);
+		});
+		Hooks.on("createItem", async function(actor, sheet, data) {
+		  console.log(`build-character | createItem ${actor.name}.`);
+		});
 
 	}
+}
+
+async function doDialog(dlg, msg) {
+	let result;
+	try {
+		result = await Dialog.wait(dlg);
+	} catch (m) {
+		ui.notifications.warn(msg);
+		return false;
+	}
+	return result;
 }
 
 
@@ -755,16 +1036,68 @@ Hooks.once('init', async function () {
 		//console.log('build-character | budget: ' + value)
 	  }
 	});
-	game.settings.register('build-character', 'datafiles', {
-	  name: 'Data files',
-	  hint: 'Semicolon-separated list of data files.',
+
+	game.settings.register('build-character', 'maindata', {
+	  name: 'Main Data File',
+	  hint: 'Contains base definitions for items from the SRD.',
+	  config: true,
+	  type: String,
+	  filePicker: true,
+	  default: "modules/build-character/srdData.json",
+	});
+
+	game.settings.register('build-character', 'customdata', {
+	  name: 'Custom Data File',
+	  hint: 'Definitions for any custom data, such as PHB or homebrew items.',
+	  config: true,
+	  type: String,
+	  filePicker: true,
+	  default: ""
+	});
+
+	game.settings.register('build-character', 'worlddata', {
+	  name: 'World Data File',
+	  hint: 'Definitions for world data. Specify exclusions in this file to exclude items from the SRD.',
+	  config: true,
+	  type: String,
+	  filePicker: true,
+	  default: ""
+	});
+
+	game.settings.register('build-character', 'auxdata', {
+	  name: 'Auxiliary Data File',
+	  hint: 'Definitions for any other auxiliary items. Specify exclusions in this file to exclude items from the SRD.',
+	  config: true,
+	  type: String,
+	  filePicker: true,
+	  default: ""
+	});
+
+	let defPortrait = 'icons/svg/mystery-man.svg';
+	game.settings.register('build-character', 'defaultportrait', {
+	  name: 'Default portrait',
+	  hint: 'Name of the image file used as the portrait for new characters.',
 	  scope: 'client',     // "world" = sync to db, "client" = local storage
 	  config: true,       // false if you dont want it to show in module config
 	  type: String,       // Number, Boolean, String, Object
-	  default: "srdData.json",
+	  default: defPortrait,
+	  filePicker: true,
 	  onChange: value => { // value is the new value of the setting
-		console.log('build-character | datafiles: ' + value)
-	  }
+		console.log('build-character | portrait: ' + value)
+	  },
+	});
+	let defToken = 'icons/svg/mystery-man.svg';
+	game.settings.register('build-character', 'defaulttoken', {
+	  name: 'Default taken',
+	  hint: 'Name of the image file used as the token for new characters.',
+	  scope: 'client',     // "world" = sync to db, "client" = local storage
+	  config: true,       // false if you dont want it to show in module config
+	  type: String,       // Number, Boolean, String, Object
+	  default: defToken,
+	  filePicker: true,
+	  onChange: value => { // value is the new value of the setting
+		console.log('build-character | token: ' + value)
+	  },
 	});
 	
 });
@@ -793,3 +1126,38 @@ function insertActorHeaderButtons(actorSheet, buttons) {
 }
 
 Hooks.on("getActorSheetHeaderButtons", insertActorHeaderButtons);
+
+function hasPermission() {
+    const userRole = game.user.role;
+
+    if (!game.permissions.ACTOR_CREATE.includes(userRole))
+        return false;
+	return true;
+}
+
+// Put button on actor tab.
+
+Hooks.on("renderActorDirectory", (app, html, data) => {
+    console.log("build-character | Creating actor tab button");
+	if (!hasPermission())
+		return;
+
+    const createButton = $("<button id='build-character-button'><i class='fas fa-user-plus'></i> Build Character</button>");
+    html.find(".directory-header").append(createButton);
+
+    createButton.click(async (ev) => {
+        console.log("build-character | button clicked");
+		let bc;
+		try {
+			if (hasPermission()) {
+				bc = new BuildCharacter();
+				await bc.createCharacter();
+			}
+		} catch (msg) {
+			ui.notifications.warn(msg);
+		} finally {
+			if (bc)
+				bc.finish();
+		}
+    });
+});
