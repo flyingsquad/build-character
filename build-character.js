@@ -285,42 +285,64 @@ export class BuildCharacter {
 			});
 			return false;
 		}
-		
-		let chosenRace = await this.getRace(actor);
-		if (!chosenRace)
-			return;
 
-		// This will be null if there is no subrace available, undefined if
-		// user exited.
+		let step = 1;
+		let next = 0;
+		let chosenRace = undefined;
+		let chosenSubrace = undefined;
+		let chosenBackground = undefined;
+		let chosenClass = undefined;
+		let chosenSubclass = undefined;
 
-		let chosenSubrace = await this.getSubrace(actor, chosenRace.name);
-		if (chosenSubrace === undefined)
-			return;
-		
-		if (chosenSubrace != null) {
+		for (;;) {
+			switch (step) {
+			case 1:
+				[next, chosenRace] = await this.getRace(actor, chosenRace);
+				break;
+
+			case 2:
+				// This will be null if there is no subrace available, undefined if
+				// user exited. 
+				if (next < 0 && chosenSubrace == null)
+					;
+				else
+					[next, chosenSubrace] = await this.getSubrace(actor, chosenRace.name, chosenSubrace);
+				break;
+			
+			case 3:
+				[next, chosenBackground] = await this.getBackground(actor, chosenBackground);
+				break;
+				
+			case 4:
+				[next, chosenClass] = await this.getClass(actor, chosenClass);
+				break;
+				
+			case 5:
+				[next, chosenSubclass] = await this.getSubclass(actor, chosenClass.name, chosenSubclass);
+				break;
+				
+			case 6:
+				next = await this.pointBuy(actor, chosenRace, chosenSubrace);
+				break;
+			}
+			if (next == 0)
+				return;
+			step += next < 0 ? -1 : +1;
+			if (step > 6)
+				break;
+		}
+
+		// Set values on character sheet and allow user to make selections.
+
+		if (chosenSubrace != null)
 			actor.update({"data.details.race": chosenSubrace.name});
-		} else
+		else
 			actor.update({"data.details.race": chosenRace.name});
-		
-		let chosenBackground = await this.getBackground(actor);
-		if (!chosenBackground)
+
+		next = await this.chooseSkills(actor, [chosenRace, chosenSubrace, chosenBackground, chosenClass, chosenSubclass]);
+		if (!next)
 			return;
 
-		let result = await this.pointBuy(actor, chosenRace, chosenSubrace);
-		if (!result)
-			return;
-
-		let chosenClass = await this.getClass(actor);
-		if (!chosenClass)
-			return;
-		let chosenSubclass = await this.getSubclass(actor, chosenClass.name);
-		// null subclass allowed.
-		if (chosenSubclass === undefined)
-			return;
-		
-		result = await this.chooseSkills(actor, [chosenRace, chosenSubrace, chosenBackground, chosenClass, chosenSubclass]);
-		if (!result)
-			return;
 		await this.addItems(actor, [chosenRace, chosenSubrace, chosenBackground, chosenSubclass]);
 		await this.setOtherData(actor, [chosenRace, chosenSubrace, chosenBackground, chosenClass, chosenSubclass]);
 		await this.addItems(actor, [chosenClass]);
@@ -466,15 +488,44 @@ export class BuildCharacter {
 		return pickedSkills;
 	}
 
-	choiceContent(choices, limit, description) {
+	choiceContent(choices, limit, description, prechecked) {
+
+		choices.sort(function(a, b) {
+			return a.name.localeCompare(b.name);
+		});
+		
+		let choiceText = "";
+
+		let i = 0;
+		let count = 0;
+
+		for (const r of choices) {
+			let text;
+			let checked = "";
+			if (prechecked) {
+				if (prechecked.find( (c) => c && c.name == r.name)) {
+					checked = " checked";
+					count++;
+				}
+			}
+			if (r.uuid)
+				text = `<div class="vcenter">
+					<input class="checkbox" type="checkbox" id="${i}" name="c${i}" value="${r.uuid}"${checked}></input>
+					<label class="label" for="c${i}"><a class="control showuuid" uuid="${r.uuid}">${r.name}</a></label>
+					</div>\n`;
+			else
+				text = `<div class="vcenter"><input type="checkbox" id="${i}" name="c${i}" value="${r.code}"${checked}></input>
+					<label for="c${i}">${r.name}</label>
+				</div>\n`;
+			choiceText += text;
+			i++;
+		}
+
 		let content = `<style>
 			desc: {
 				font-size: 9px;
 			}
-			choices: {
-				font-family: "Modesto Condensed", "Palatino Linotype", serif;
-				font-size: 20px;
-				font-weight: 700;
+			.choices: {
 				border-top: 1pt solid;
 				border-bottom: 1pt solid;
 				border-color: maroon;
@@ -494,28 +545,11 @@ export class BuildCharacter {
 			content += `<div class="desc">${description}</div>`;
 		
 		if (limit) {
-			content += `<p class="choices">Choice <span id="count">0</span> of <span id="limit">${limit}</span></p>`;
+			content += `<p class="modesto choices">Choice <span id="count">${count}</span> of <span id="limit">${limit}</span></p>`;
 		}
 		
 		content += `<div style="padding-bottom: 12px">`;
-
-		choices.sort(function(a, b) {
-			return a.name.localeCompare(b.name);
-		});
-		let i = 0;
-		for (const r of choices) {
-			let text;
-			if (r.uuid)
-				text = `<div class="vcenter">
-					<input class="checkbox" type="checkbox" id="${i}" name="c${i}" value="${r.uuid}"></input>
-					<label class="label" for="c${i}"><a class="control showuuid" uuid="${r.uuid}">${r.name}</a></label>
-					</div>\n`;
-			else
-				text = `<div class="vcenter"><input type="checkbox" id="${i}" name="c${i}" value="${r.code}"></input><label for="c${i}">${r.name}</label></div>\n`;
-			content += text;
-			i++;
-		}
-
+		content += choiceText;
 		content += `</div>`;
 		return content;
 	}
@@ -566,7 +600,7 @@ export class BuildCharacter {
 		return selections;
 	}
 	
-	async getRace(actor) {
+	async getRace(actor, prevRace) {
 		let races = [];
 
 		for (const pack of game.packs) {
@@ -598,32 +632,34 @@ export class BuildCharacter {
 		if (this.itemData?.customText?.race?.description)
 			description = this.itemData.customText.race.description;
 
-		let content = this.choiceContent(races, 1, description);
+		let content = this.choiceContent(races, 1, description, [prevRace]);
 		let chosenRace = undefined;
-		let result = await Dialog.wait({
+
+		let next = await Dialog.wait({
 		  title: title,
 		  content: content,
 		  buttons: {
-			ok: {
-			  label: "OK",
+			next: {
+			  label: "Next",
 			  icon: '<i class="fas fa-angles-right"></i>',
 			  callback: async (html) => {
 				  chosenRace = this.getChoices(html, races);
-				  return true;
+				  return +1;
 			  },
 			},
 			cancel: {
 				label: "Cancel",
-				callback: (html) => { return false; }
+				callback: (html) => { return 0; }
 			},
 		  },
-		  default: "ok",
+		  default: "next",
 		  render: (html) => { this.handleChoiceRender(this, html); }
 		});
-		return chosenRace[0];		
+
+		return [next, chosenRace ? chosenRace[0] : undefined];
 	}
 
-	async getSubrace(actor, race) {
+	async getSubrace(actor, race, prevSubrace) {
 		let subraces = [];
 
 		for (const pack of game.packs) {
@@ -650,9 +686,7 @@ export class BuildCharacter {
 		}
 
 		if (subraces.length == 0)
-			return null;
-		if (subraces.length == 1)
-			return subraces[0];
+			return [+1, null];
 
 		let title = "Select Subrace";
 		if (this.itemData?.customText?.subrace?.title)
@@ -662,32 +696,41 @@ export class BuildCharacter {
 		if (this.itemData?.customText?.subrace?.description)
 			description = this.itemData.customText.subrace.description;
 
-		let content = this.choiceContent(subraces, 1, description);
+		let content = this.choiceContent(subraces, 1, description, [prevSubrace]);
 		let chosenSubrace = undefined;
-		let result = await Dialog.wait({
+
+		let next = await Dialog.wait({
 		  title: title,
 		  content: content,
 		  buttons: {
-			ok: {
-			  label: "OK",
+			previous: {
+				label: "Previous",
+				icon: '<i class="fas fa-angles-left"></i>',
+				callback: (html) => {
+					chosenSubrace = this.getChoices(html, subraces);
+					return -1;
+				}
+			},
+			next: {
+			  label: "Next",
 			  icon: '<i class="fas fa-angles-right"></i>',
 			  callback: async (html) => {
 				  chosenSubrace = this.getChoices(html, subraces);
-				  return true;
+				  return +1;
 			  },
 			},
 			cancel: {
 				label: "Cancel",
-				callback: (html) => { return false; }
+				callback: (html) => { return 0; }
 			},
 		  },
 		  default: "ok",
 		  render: (html) => { this.handleChoiceRender(this, html); }
 		});
-		return chosenSubrace[0];		
+		return [next, chosenSubrace ? chosenSubrace[0] : undefined];
 	}
 	
-	async getBackground(actor) {
+	async getBackground(actor, prevBackground) {
 		// List all the backgrounds found.
 
 		let bgs = [];
@@ -721,18 +764,27 @@ export class BuildCharacter {
 		if (this.itemData?.customText?.background?.description)
 			description = this.itemData.customText.background.description;
 
-		let content = this.choiceContent(bgs, 1, description);
+		let content = this.choiceContent(bgs, 1, description, [prevBackground]);
 		let chosenBackground = undefined;
-		let result = await Dialog.wait({
+
+		let next = await Dialog.wait({
 		  title: title,
 		  content: content,
 		  buttons: {
-			ok: {
-			  label: "OK",
+			previous: {
+				label: "Previous",
+				icon: '<i class="fas fa-angles-left"></i>',
+				callback: async (html) => {
+				  chosenBackground = this.getChoices(html, bgs);
+				  return -1;
+				},
+			},
+			next: {
+			  label: "Next",
 			  icon: '<i class="fas fa-angles-right"></i>',
 			  callback: async (html) => {
 				  chosenBackground = this.getChoices(html, bgs);
-				  return true;
+				  return +1;
 			  },
 			},
 			cancel: {
@@ -740,13 +792,13 @@ export class BuildCharacter {
 				callback: (html) => { return false; }
 			},
 		  },
-		  default: "ok",
+		  default: "next",
 		  render: (html) => { this.handleChoiceRender(this, html); }
 		});
-		return chosenBackground[0];
+		return [next, chosenBackground ? chosenBackground[0] : undefined];
 	}
 
-	async getClass(actor) {
+	async getClass(actor, prevClass) {
 		let classes = [];
 
 		for (const pack of game.packs) {
@@ -778,32 +830,41 @@ export class BuildCharacter {
 		if (this.itemData?.customText?.class?.description)
 			description = this.itemData.customText.class.description;
 
-		let content = this.choiceContent(classes, 1, description);
+		let content = this.choiceContent(classes, 1, description, [prevClass]);
 		let chosenClass = undefined;
-		let result = await Dialog.wait({
+
+		let next = await Dialog.wait({
 		  title: title,
 		  content: content,
 		  buttons: {
-			ok: {
-			  label: "OK",
+			previous: {
+				label: "Previous",
+				icon: '<i class="fas fa-angles-left"></i>',
+				callback: async (html) => {
+				  chosenClass  = this.getChoices(html, classes);
+				  return -1;
+				},
+			},
+			next: {
+			  label: "Next",
 			  icon: '<i class="fas fa-angles-right"></i>',
 			  callback: async (html) => {
 				  chosenClass  = this.getChoices(html, classes);
-				  return true;
+				  return +1;
 			  },
 			},
 			cancel: {
 				label: "Cancel",
-				callback: (html) => { return false; }
+				callback: (html) => { return 0; }
 			},
 		  },
-		  default: "ok",
+		  default: "next",
 		  render: (html) => { this.handleChoiceRender(this, html); }
 		});
-		return chosenClass[0];
+		return [next, chosenClass ? chosenClass[0] : undefined];
 	}
 
-	async getSubclass(actor, cls) {
+	async getSubclass(actor, cls, prevSubclass) {
 		let subclasses = [];
 
 		for (const pack of game.packs) {
@@ -830,9 +891,7 @@ export class BuildCharacter {
 		}
 
 		if (subclasses.length == 0)
-			return null;
-		if (subclasses.length == 1)
-			return subclasses[0];
+			return [+1, null];
 
 		let title = "Select Subclass";
 		if (this.itemData?.customText?.subclass?.title)
@@ -842,18 +901,27 @@ export class BuildCharacter {
 		if (this.itemData?.customText?.subclass?.description)
 			description = this.itemData.customText.subclass.description;
 
-		let content = this.choiceContent(subclasses, 1, description);
+		let content = this.choiceContent(subclasses, 1, description, [prevSubclass]);
 		let chosenSubclass = undefined;
-		let result = await Dialog.wait({
+
+		let next = await Dialog.wait({
 		  title: title,
 		  content: content,
 		  buttons: {
-			ok: {
-			  label: "OK",
+			previous: {
+				label: "Previous",
+				icon: '<i class="fas fa-angles-left"></i>',
+				callback: async (html) => {
+					chosenSubclass = this.getChoices(html, subclasses);
+					return -1;
+				}
+			},
+			next: {
+			  label: "Next",
 			  icon: '<i class="fas fa-angles-right"></i>',
 			  callback: async (html) => {
 				  chosenSubclass = this.getChoices(html, subclasses);
-				  return true;
+				  return +1;
 			  },
 			},
 			cancel: {
@@ -861,13 +929,20 @@ export class BuildCharacter {
 				callback: (html) => { return false; }
 			},
 		  },
-		  default: "ok",
+		  default: "next",
 		  render: (html) => { this.handleChoiceRender(this, html); }
 		});
-		return chosenSubclass[0];		
+		return [next, chosenSubclass ? chosenSubclass[0] : undefined];
 	}
 
 	async pointBuy(actor, race, subrace) {
+		this.racialBonus.Strength = 0;
+		this.racialBonus.Dexterity = 0;
+		this.racialBonus.Constitution = 0;
+		this.racialBonus.Intelligence = 0;
+		this.racialBonus.Wisdom = 0;
+		this.racialBonus.Charisma = 0;
+
 		let choose = this.setAbilityBonuses(race);
 		if (subrace) {
 			let info = this.setAbilityBonuses(subrace);
@@ -930,53 +1005,59 @@ export class BuildCharacter {
 				}
 			});
 		}
+		
+		function recordAbilities(pb) {
+			actor.update({"data.abilities.str.value": pb.abilities['Strength']});
+			actor.update({"data.abilities.dex.value": pb.abilities['Dexterity']});
+			actor.update({"data.abilities.con.value": pb.abilities['Constitution']});
+			actor.update({"data.abilities.int.value": pb.abilities['Intelligence']});
+			actor.update({"data.abilities.wis.value": pb.abilities['Wisdom']});
+			actor.update({"data.abilities.cha.value": pb.abilities['Charisma']});
+		}
+		
+		function setAbilities(pb, html) {
+			let usedPoints = pb.calcCost(html);
 
-		let result = await Dialog.wait({
+			// Check if the point allocation is valid
+
+			if (usedPoints == pb.totalPoints) {
+				recordAbilities(pb);
+			} else {
+				// Show an error message if the point allocation is invalid
+				throw new Error(`You need to spend exactly ${pb.totalPoints} points. You spent ${usedPoints}.`);
+			}
+		}
+
+		let next = await Dialog.wait({
 		  title: "Point Buy Ability Scores",
 		  content: content,
 		  buttons: {
-			ok: {
-			  icon: '<i class="fas fa-angles-right"></i>',
-			  label: "OK",
+			previous: {
+			  icon: '<i class="fas fa-angles-left"></i>',
+			  label: "Previous",
 			  callback: async (html) => {
-				  if (false) {
-					// Get the background from dialog and add to character.
-					let bg = html.find("#bg").val().split(".");
-					if (bg.length === 1)
-						throw new Error("No background was selected.");
-					let bgid = bg.pop();
-					let compname = bg.join(".");
-					let pack = game.packs.get(compname);
-					await pack.getEntry(bgid).then(item => actor.createOwnedItem(item));
-				  }
-				let usedPoints = this.calcCost(html);
-
-				// Check if the point allocation is valid
-
-				if (usedPoints == this.totalPoints) {
-				  actor.update({"data.abilities.str.value": this.abilities['Strength']});
-				  actor.update({"data.abilities.dex.value": this.abilities['Dexterity']});
-				  actor.update({"data.abilities.con.value": this.abilities['Constitution']});
-				  actor.update({"data.abilities.int.value": this.abilities['Intelligence']});
-				  actor.update({"data.abilities.wis.value": this.abilities['Wisdom']});
-				  actor.update({"data.abilities.cha.value": this.abilities['Charisma']});
-
-				} else {
-				  // Show an error message if the point allocation is invalid
-				  throw new Error(`You need to spend exactly ${this.totalPoints} points. You spent ${usedPoints}.`);
-				}
-				return true;
+				  let usedPoints = this.calcCost(html);
+				  recordAbilities(this);
+				  return -1;
+			  },
+			},
+			next: {
+			  icon: '<i class="fas fa-angles-right"></i>',
+			  label: "Next",
+			  callback: async (html) => {
+				  setAbilities(this, html);
+				  return +1;
 			  },
 			},
 			cancel: {
 				label: "Cancel",
-				callback: (html) => { return false; }
+				callback: (html) => { return 0; }
 			},
 		  },
-		  default: "ok",
+		  default: "next",
 		  render: (html) => { handleRender(this, html); }
 		});
-		return result;
+		return next;
 	}
 	
 	finish() {
