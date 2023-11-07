@@ -186,10 +186,65 @@
 	],
 	"classes": [
 		{
-			"name": "Barbarian"
+			"name": "Barbarian",
+			"skills": [
+				{"choose": 2, "options": ["ani", "ath", "itm", "nat", "per", "sur"]}
+			],
+			"saves": [
+				"Strength", "Constitution"
+			],
+			"features": [
+			],
+			"armor": [
+				{"name": "lgt"},
+				{"name": "med"},
+				{"name": "shl"}
+			],
+			"weapons": [
+				{"name": "mar"},
+				{"name": "sim"}
+			]
 		},
 		{
-			"name": "Bard"
+			"name": "Bard",
+			"skills": [
+				{"choose": 3}
+			],
+			"saves": [
+				"Dexterity", "Charisma"
+			],
+			"features": [
+			],
+			"spells": [
+				{
+					"choose": 2,
+					"level": "cantrip",
+					"class": "bard", 
+					"ability": "cha"
+				},
+				{
+					"choose": 4,
+					"level": 1,
+					"class": "bard", 
+					"ability": "cha"
+				}
+			],
+			"languages": [
+				{"choose": 1}
+			],
+			"armor": [
+				{"name": "lgt"}
+			],
+			"tools": [
+				{"choose": 3, "category": "instrument"}
+			],
+			"weapons": [
+				{"name": "handcrossbow"},
+				{"name": "longsword"},
+				{"name": "rapier"},
+				{"name": "shortsword"},
+				{"name": "sim"}
+			]
 		},
 		{
 			"name": "Cleric",
@@ -214,7 +269,32 @@
 			]
 		},
 		{
-			"name": "Druid"
+			"name": "Druid",
+			"skills": [
+				{"choose": 2, "options": ["arc", "ani", "ins", "med", "per", "rel", "sur"]}
+			],
+			"saves": [
+				"Wisdom", "Intelligence"
+			],
+			"features": [
+			],
+			"armor": [
+				{"name": "lgt"},
+				{"name": "med"},
+				{"name": "shl"}
+			],
+			"weapons": [
+				{"name": "club"},
+				{"name": "dagger"},
+				{"name": "dart"},
+				{"name": "javelin"},
+				{"name": "mace"},
+				{"name": "quarterstaff"},
+				{"name": "scimitar"},
+				{"name": "sickle"},
+				{"name": "sling"},
+				{"name": "spear"}
+			]
 		},
 		{
 			"name": "Fighter",
@@ -239,7 +319,19 @@
 			]
 		},
 		{
-			"name": "Monk"
+			"name": "Monk",
+			"skills": [
+				{"choose": 2, "options": ["acr", "ath", "his", "ins", "rel", "ste"]}
+			],
+			"saves": [
+				"Dexterity", "Strength"
+			],
+			"armor": [
+			],
+			"weapons": [
+				{"name": "sim"},
+				{"name": "shortsword"}
+			]
 		},
 		{
 			"name": "Ranger",
@@ -279,13 +371,68 @@
 			]
 		},
 		{
-			"name": "Sorcerer"
+			"name": "Sorcerer",
+			"skills": [
+				{"choose": 2, "options": ["arc", "dec", "ins", "itm", "per", "rel"]}
+			],
+			"saves": [
+				"Constitution", "Charisma"
+			],
+			"armor": [
+			],
+			"weapons": [
+				{"name": "dagger"},
+				{"name": "dart"},
+				{"name": "sling"},
+				{"name": "staff"},
+				{"name": "lightcrossbow"}
+			]
 		},
 		{
-			"name": "Warlock"
+			"name": "Warlock",
+			"skills": [
+				{"choose": 2, "options": ["arc", "dec", "his", "inv", "itm", "nat", "rel"]}
+			],
+			"saves": [
+				"Wisdom", "Charisma"
+			],
+			"armor": [
+				"lgt"
+			],
+			"weapons": [
+				{"name": "sim"}
+			]
 		},
 		{
-			"name": "Wizard"
+			"name": "Wizard",
+			"skills": [
+				{"choose": 2, "options": ["arc", "dec", "his", "inv", "itm", "nat", "rel"]}
+			],
+			"saves": [
+				"Wisdom", "Intelligence"
+			],
+			"armor": [
+			],
+			"spells": [
+				{
+					"choose": 3,
+					"level": "cantrip",
+					"class": "wizard", 
+					"ability": "int"
+				},
+				{
+					"choose": 6,
+					"level": 1,
+					"class": "wizard", 
+					"ability": "int"
+				}
+			],
+			"weapons": [
+				{"name": "dagger"},
+				{"name": "dart"},
+				{"name": "quarterstaff"},
+				{"name": "lightcrossbow"}
+			]
 		}
 	],
 	"subclasses": [
@@ -332,6 +479,46 @@
 		{
 			"name": "School of Evocation",
 			"class": "Wizard"
+		}
+	],
+	"spells": [
+		{
+			"level": "cantrip",
+			"spells": [
+				"Acid Splash", "Chill Touch", "Dancing Lights", "Druidcraft", "Eldritch Blast", "Fire Bolt", "Guidance",
+				"Light", "Mage Hand", "Mending", "Message", "Minor Illusion", "Poison Spray", "Prestidigitation",
+				"Produce Flame", "Ray of Frost", "Resistance", "Sacred Flame", "Shillelagh", "Shocking Grasp",
+				"Spare the Dying", "Thaumaturgy", "True Strike", "Vicious Mockery"
+			]
+		},
+		{
+			"level": 1,
+			"spells": [
+				"Alarm", "Animal Friendship", "Bane", "Bless", "Burning Hands", "Charm Person",
+				"Color Spray", "Command", "Comprehend Languages", "Create or Destroy Water", 
+				"Cure Wounds", "Detect Evil and Good", "Detect Magic", "Detect Poison and Disease", 
+				"Disguise Self", "Divine Favor", "Entangle", "Expeditious Retreat", "Faerie Fire", 
+				"False Life", "Feather Fall", "Find Familiar", "Floating Disk", "Fog Cloud", "Goodberry", 
+				"Grease", "Guiding Bolt", "Healing Word", "Hellish Rebuke", "Heroism", "Hideous Laughter", 
+				"Hunter's Mark", "Identify", "Illusory Script", "Inflict Wounds", "Jump", "Longstrider", 
+				"Mage Armor", "Magic Missile", "Protection from Evil and Good", "Purify Food and Drink", 
+				"Sanctuary", "Shield", "Shield of Faith", "Silent Image", "Sleep", "Speak with Animals", 
+				"Thunderwave", "Unseen Servant"
+			]
+		},
+		{
+			"class": "bard",
+			"spells": [
+				"Vicious Mockery", "Dancing Lights", "Light", "Mage Hand", "Mending", "Message", "Minor Illusion", "Prestidigitation", "True Strike",
+				"Animal Friendship", "Bane", "Charm Person", "Comprehend Languages", "Cure Wounds", "Detect Magic", "Disguise Self", "Faerie Fire", "Feather Fall", "Healing Word", "Heroism", "Hideous Laughter", "Identify", "Illusory Script", "Longstrider", "Silent Image", "Sleep", "Speak with Animals", "Thunderwave"
+			]
+		},
+		{
+			"class": "wizard",
+			"spells": [
+				"Acid Splash", "Chill Touch", "Dancing Lights", "Fire Bolt", "Light", "Mage Hand", 				"Mending", "Message", "Minor Illusion", "Poison Spray", "Prestidigitation", "Ray of Frost", 		"Shocking Grasp", "True Strike",
+				"Alarm", "Burning Hands", "Charm Person", "Color Spray", "Comprehend Languages", "Detect Magic",	"Disguise Self", "Expeditious Retreat", "False Life", "Feather Fall", "Find Familiar", "Floating Disk", "Fog Cloud", "Grease", "Hideous Laughter", "Identify", "Illusory Script", "Jump", "Longstrider", "Mage Armor", "Magic Missile", "Protection from Evil and Good", "Shield", "Silent Image", "Sleep", "Thunderwave", "Unseen Servant"
+			]
 		}
 	]
 }

@@ -1,6 +1,6 @@
 /**	Build a character
  */
- 
+
 export class BuildCharacter {
 	actor = null;
 	dlg = null;
@@ -48,6 +48,12 @@ export class BuildCharacter {
 	 */
 
 	async readItemData() {
+		if (BuildCharacter.itemData) {
+			// Data already cached.
+			this.itemData = BuildCharacter.itemData;
+			return;
+		}
+		
 		this.itemData.races = [];
 		this.itemData.subraces = [];
 		this.itemData.subclasses = [];
@@ -55,6 +61,7 @@ export class BuildCharacter {
 		this.itemData.backgrounds = [];
 		this.itemData.customLanguages = [];
 		this.itemData.customText = {};
+		this.itemData.spells = [];
 		
 		let fileNames = [
 			game.settings.get('build-character', 'auxdata'),
@@ -95,12 +102,42 @@ export class BuildCharacter {
 					}
 				}
 			}
+			
+			function addspells(itemData, list) {
+				function addMissing(lev, obj) {
+					for (let s of obj.spells) {
+						if (!lev.spells.find(name => name == s))
+							lev.spells.push(s);
+					}
+				}
+
+				if (list) {
+					for (const obj of list) {
+						if (obj.level) {
+							let lev = itemData.find((v) => v.level == obj.level);
+							if (lev) {
+								addMissing(lev, obj);
+							} else {
+								itemData.push(obj);
+							}
+						} else if (obj.class) {
+							let lev = itemData.find((v) => v.class  == obj.class);
+							if (lev) {
+								addMissing(lev, obj);
+							} else {
+								itemData.push(obj);
+							}
+						}
+					}
+				}
+			}
 
 			additems(this.itemData.races, data.races);
 			additems(this.itemData.subraces, data.subraces);
 			additems(this.itemData.classes, data.classes);
 			additems(this.itemData.subclasses, data.subclasses);
 			additems(this.itemData.backgrounds, data.backgrounds);
+			addspells(this.itemData.spells, data.spells);
 			if (data.customLanguages !== undefined) {
 				for (let lang of data.customLanguages)
 					this.itemData.customLanguages.push(lang);
@@ -117,6 +154,7 @@ export class BuildCharacter {
 				});
 			}
 		}
+		BuildCharacter.itemData = this.itemData;
 	}
 	
 	calcCost(html) {
@@ -139,18 +177,24 @@ export class BuildCharacter {
 		<td style="text-align: left">
 			<label for="${ability}">${ability}</label>
 		</td>
-		<td style="text-align: center">
-			<select id="${ability}">`;
-		for (let i = 8; i <= 15; i++) {
-			if (value == i)
-				content += `<option value="${i}" selected>${i}</option>`;
-			else
-				content += `<option value="${i}">${i}</option>`;
+		<td width="80px" style="text-align: center">`;
+		
+		if (this.abilityMethod == 'pointbuy') {
+			content += `<select id="${ability}">`;
+			for (let i = 8; i <= 15; i++) {
+				if (value == i)
+					content += `<option value="${i}" selected>${i}</option>`;
+				else
+					content += `<option value="${i}">${i}</option>`;
+			}
+			content += `</select>`;
+		} else {
+			content += `<input type="number" id="${ability}" name="${ability}" value="${value}">`;
 		}
-		return content + `</select>
-			</td>
-			<td width="20" style="text-align: center">
-				<input type="number" name="racial${ability}" value="${this.racialBonus[ability]}" width="20" size=1 maxlength=1>
+
+		return content += `</td>
+			<td width="80" style="text-align: center">
+				<input type="number" name="racial${ability}" value="${this.racialBonus[ability]}">
 			</td>
 			<td style="text-align: center; font-weight: bold" id="total${ability}">
 				${total}
@@ -180,6 +224,7 @@ export class BuildCharacter {
 	};
 
 	totalPoints = Number(game.settings.get('build-character', 'budget'));
+	abilityMethod = game.settings.get('build-character', 'abilityMethod');
 
 	async addItems(actor, itemList) {
 		for (let it of itemList) {
@@ -188,19 +233,30 @@ export class BuildCharacter {
 			const item = await fromUuid(it.uuid);
 			if (item) {
 				// FIX: should use call that executes advancement steps.
-				actor.createEmbeddedDocuments("Item", [item]);
-				if (it.obj.features !== undefined) {
-					for (let f of it.obj.features) {
-						const feature = await fromUuid(f.uuid);
-						if (feature)
-							actor.createEmbeddedDocuments("Item", [feature]);
-						else
-							throw new Error(`Unable to add feature ${f.name} for ${it.name}`);
-					}
-				}
+				let itemData = item.toObject();
+				itemData.flags['build-character'] = {added: true};
+				let itemId = await actor.createEmbeddedDocuments("Item", [itemData]);
+				if (itemId)
+					it.id = itemId[0];
+				this.addFeatures(actor, it);
 			} else {
 				const msg = `Could not get item ${it.name} (${it.uuid})`
 				throw new Error(msg);
+			}
+		}
+	}
+
+	async addFeatures(actor, it) {
+		if (it.obj.features !== undefined) {
+			for (let f of it.obj.features) {
+				const feature = await fromUuid(f.uuid);
+				if (!feature)
+					throw new Error(`Feature ${f.name}[${f.uuid}] for ${it.name} not found in compendium`);
+				let itemData = feature.toObject();
+				itemData.flags['build-character'] = {added: true};
+				let ids = await actor.createEmbeddedDocuments("Item", [itemData]);
+				if (ids)
+					f.id = ids[0];
 			}
 		}
 	}
@@ -257,7 +313,7 @@ export class BuildCharacter {
 		  img: game.settings.get('build-character', 'defaultportrait')
 		});
 		// FIX: set the default token as well.
-		await actor.update({"prototypeToken.texture.src": game.settings.get('build-character', 'defaulttoken')});
+		actor.update({"prototypeToken.texture.src": game.settings.get('build-character', 'defaulttoken')});
 
 		actor.sheet.render(true)
 		await this.buildCharacter(actor);
@@ -269,21 +325,58 @@ export class BuildCharacter {
 
 		this.actor = actor;
 
-		let hasBackground = actor.items.find(it => it.type == 'background');
-		let hasRace = actor.items.find(it => {
-				if (it.type == 'feat')
+		// Get a list of backgrounds, races, classes and ask user if they
+		// want to delete them.
+
+		let items = [];
+
+		items = items.concat(actor.items.filter(it => it.type == 'background'));
+
+		items = items.concat(actor.items.filter(it => {
+				if (it.type == 'feat') {
+					if (this.itemData.subraces.find(r => it.name == r.name))
+						return true;
 					return this.itemData.races.find(r => it.name == r.name);
-				return false;
+				}
+				return undefined;
 			}
-		);
-		if (actor.system.details.level > 0 || hasBackground || hasRace) {
-			Dialog.prompt({
-				title: "Not Starting Character",
-				content: `<p>Only starting characters may use the character builder.</p>
-				<p>${actor.name} has a background, race or class.</p>`,
-				label: "OK"
+		));
+		items = items.concat(actor.items.filter(it => it.type == 'class'));
+		items = items.concat(actor.items.filter(it => it.type == 'subclass'));
+
+		if (items.length > 0) {
+			
+			let list = "";
+			for (let it of items)
+				list += "<br>&nbsp;&nbsp;&nbsp;&nbsp;* " + it.name;
+
+			let deleteIt = await Dialog.confirm({
+			  title: "Established Character",
+			  content: "The character already has already been created with the following items:<br>" +
+				list +
+				"<br><br>Do you wish to delete these and start from scratch?<br><br>",
+			  yes: (html) => { return true; },
+			  no: (html) => { return false },
+			  default: "no"
 			});
-			return false;
+			if (!deleteIt)
+				return undefined;
+
+			deleteIt = await Dialog.confirm({
+			  title: "Are You Sure?",
+			  content: "Are you sure you want to delete these items?<br>" + list + "<br><br>",
+			  yes: (html) => { return true; },
+			  no: (html) => { return false },
+			  default: "no"
+			});
+			if (!deleteIt)
+				return;
+
+			let ids = [];
+			for (let it of items) {
+				ids.push(it.id);
+			}
+			await actor.deleteEmbeddedDocuments("Item", ids, { isAdvancement: true });
 		}
 
 		let step = 1;
@@ -302,7 +395,7 @@ export class BuildCharacter {
 
 			case 2:
 				// This will be null if there is no subrace available, undefined if
-				// user exited. 
+				// user exited.
 				if (next < 0 && chosenSubrace == null)
 					;
 				else
@@ -322,7 +415,7 @@ export class BuildCharacter {
 				break;
 				
 			case 6:
-				next = await this.pointBuy(actor, chosenRace, chosenSubrace);
+				next = await this.selectAbilities(actor, chosenRace, chosenSubrace);
 				break;
 			}
 			if (next == 0)
@@ -343,9 +436,10 @@ export class BuildCharacter {
 		if (!next)
 			return;
 
-		await this.addItems(actor, [chosenRace, chosenSubrace, chosenBackground, chosenSubclass]);
+		await this.addItems(actor, [chosenRace, chosenSubrace, chosenBackground]);
 		await this.setOtherData(actor, [chosenRace, chosenSubrace, chosenBackground, chosenClass, chosenSubclass]);
-		await this.addItems(actor, [chosenClass]);
+		await this.chooseSpells(actor, [chosenRace, chosenSubrace, chosenBackground, chosenClass, chosenSubclass]);
+		await this.addItems(actor, [chosenClass, chosenSubclass]);
 	}
 	
 	skillName(key) {
@@ -400,8 +494,14 @@ export class BuildCharacter {
 		// Get the granted skills.
 		let grantedSkills = [];
 		let choices = [];
+		for (let s of Object.keys(CONFIG.DND5E.skills)) {
+			let proficient = actor.system.skills[s].proficient;
+			if (proficient)
+				grantedSkills.push(s);
+		}
+
 		for (const f of features) {
-			if (!f || f.obj.skills === undefined)
+			if (!f || !f?.obj?.skills)
 				continue;
 			for (const skill of f.obj.skills) {
 				if (skill.name != undefined) {
@@ -484,8 +584,145 @@ export class BuildCharacter {
 		  },
 		  default: "ok",
 		  render: (html) => { this.handleChoiceRender(this, html); }
-		});
+		}, "", {width: 600});
 		return pickedSkills;
+	}
+
+	async chooseSpells(actor, features) {
+		for (let f of features) {
+			if (!f || !f?.obj?.spells)
+				continue;
+
+			let addedSpells = [];
+
+			for (let s of f.obj.spells) {
+				if (s.advancement) {
+					// Ignore advancements, should be added to
+					// the feature so it will be handled by the
+					// advancement feature when the user levels up.
+					;
+				} else if (s.choose) {
+					let added = await this.pickSpells(actor, f, s);
+					if (!added)
+						return false;
+					addedSpells = addedSpells.concat(added);
+				} else if (s.name) {
+					// Add the named spell by its uuid.
+					if (s.uuid) {
+						const item = await fromUuid(s.uuid);
+						if (item) {
+							let itemData = item.toObject();
+							if (s.ability)
+								itemData.system.ability = s.ability;
+							let added = actor.createEmbeddedDocuments("Item", [itemData]);
+							addedSpells = addedSpells.concat(added);
+						} else {
+							ui.notifications.warn(`Unable to read spell ${s.name} (${s.uuid})`);
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	async pickSpells(actor, feature, s) {
+		let spells = [];
+
+		let list = [];
+
+		let levelList = this.itemData.spells.find((lev) => lev.level == s.level);
+		if (!levelList) {
+			ui.notifications.warn(`pickSpells: No level ${s.level} spells found`);
+			return false;
+		}
+		let classList = this.itemData.spells.find((c) => c.class == s.class);
+		if (!classList)
+			throw new Error(`pickSpells: No ${s.class} class spells found`);
+		
+		let alreadySelected = [];
+
+		for (let name of levelList.spells) {
+			if (classList.spells.find((n) => name == n)) {
+				if (actor.items.find(i => i.type == 'spell' && i.name == name))
+					alreadySelected.push(name);
+				else
+					list.push(name);
+			}
+		}
+		
+		// Fetch uuid from compendium index.
+
+		for (const pack of game.packs) {
+			if (pack.metadata.type === 'Item') {
+				for (let spell of list) {
+					let s = pack.index.find((obj) => obj.type == 'spell' && spell == obj.name);
+					if (s) {
+						spells.push(
+							{
+								name: spell,
+								pack: pack.metadata.id,
+								obj: spell,
+								uuid: s.uuid
+							}
+						);
+					}
+				}
+			}
+		}
+		
+		// Report any items that weren't found in a pack to check for typoes.
+
+		for (let name of list) {
+			if (!spells.find((s) => name = s.name))
+				ui.notifications.warn(`build-character | Did not find ${name} in any compendium.`);
+		}
+		
+		let title = "Select Spells";
+		
+		let type = s.level == 'cantrip' ? 'cantrip(s)' : `level ${s.level} spell(s)`;
+		let description = `Select ${s.choose} ${type} for ${feature.name}.`;
+		if (alreadySelected.length > 0)
+			description += "<br><br>Already selected: " + alreadySelected.join(', ');
+
+		let content = this.choiceContent(spells, s.choose, description, []);
+		let chosenSpells = undefined;
+
+		let next = await Dialog.wait({
+		  title: title,
+		  content: content,
+		  buttons: {
+			next: {
+			  label: "Next",
+			  icon: '<i class="fas fa-angles-right"></i>',
+			  callback: async (html) => {
+				  chosenSpells = this.getChoices(html, spells);
+				  return +1;
+			  },
+			},
+			cancel: {
+				label: "Cancel",
+				callback: (html) => { return 0; }
+			},
+		  },
+		  default: "next",
+		  render: (html) => { this.handleChoiceRender(this, html); }
+		}, {width: 600});
+
+		let addedSpells = [];
+
+		if (next > 0) {
+			for (let s of chosenSpells) {
+				const item = await fromUuid(s.uuid);
+				if (item) {
+					let itemData = item.toObject();
+					addedSpells = addedSpells.concat(actor.createEmbeddedDocuments("Item", [itemData]));
+				} else {
+					ui.notifications.warn(`Unable to read spell ${s.name} (${s.uuid})`);
+				}
+			}
+		}
+		
+		return addedSpells;
 	}
 
 	choiceContent(choices, limit, description, prechecked) {
@@ -533,6 +770,8 @@ export class BuildCharacter {
 			.vcenter {
 				align-items: center;
 				display: flex;
+				flex-grow: 1;
+				width: 50%;
 			}
 			.checkbox {
 				flex-grow: 1;
@@ -548,7 +787,7 @@ export class BuildCharacter {
 			content += `<p class="modesto choices">Choice <span id="count">${count}</span> of <span id="limit">${limit}</span></p>`;
 		}
 		
-		content += `<div style="padding-bottom: 12px">`;
+		content += `<div style="padding-bottom: 12px; display: flex; flex-flow: row wrap">`;
 		content += choiceText;
 		content += `</div>`;
 		return content;
@@ -934,14 +1173,30 @@ export class BuildCharacter {
 		});
 		return [next, chosenSubclass ? chosenSubclass[0] : undefined];
 	}
-
-	async pointBuy(actor, race, subrace) {
+	
+	async selectAbilities(actor, race, subrace) {
 		this.racialBonus.Strength = 0;
 		this.racialBonus.Dexterity = 0;
 		this.racialBonus.Constitution = 0;
 		this.racialBonus.Intelligence = 0;
 		this.racialBonus.Wisdom = 0;
 		this.racialBonus.Charisma = 0;
+		
+		if (!race) {
+			// No race passed in, check the character items for race and subrace.
+			for (let item of actor.items) {
+				if (item.type == 'feat') {
+					let r = this.itemData.races.find(r => item.name == r.name);
+					if (r)
+						race = {name: item.name, obj: r};
+					else {
+						r = this.itemData.subraces.find(r => item.name == r.name);
+						if (r)
+							subrace = {name: item.name, obj: r};
+					}
+				}
+			}
+		}
 
 		let choose = this.setAbilityBonuses(race);
 		if (subrace) {
@@ -966,17 +1221,28 @@ export class BuildCharacter {
 		let wisdomStr = this.genSelect('Wisdom', actor.system.abilities.wis.value);
 		let charismaStr = this.genSelect('Charisma', actor.system.abilities.cha.value);
 		
-		let content = `<form>
-			  <p>Each ability costs a number of points. You have a total of ${this.totalPoints} points to spend. Racial bonuses can reduce the cost of abilities.</p>
+		let content = `<form>`;
+		if (this.abilityMethod == 'pointbuy')
+			content += `<p>Each ability costs a number of points. You have a total of ${this.totalPoints} points to spend. Racial bonuses can reduce the cost of abilities.</p>
 			  <p><strong>Ability Costs</strong> 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9</p>`;
+		else
+			content += `Enter the roll for each ability in <b>Die Roll</b>.`;
+
 		if (choose)
 			content += `<p>${choose}</p>`;
+		let baseValueTitle;
+		if (this.abilityMethod == 'pointbuy') {
+			content += `<p>Remaining Points: <span id="remainingPoints">${this.totalPoints}</span></p>`;
+			baseValueTitle = 'Base Value';
+		} else {
+			baseValueTitle = 'Die Roll';
+		}
+
 		content +=
-			  `<p>Remaining Points: <span id="remainingPoints">${this.totalPoints}</span></p>
-			  <table>
+			  `<table>
 				<tr>
 					<th style="text-align: left">Ability</th>
-					<th>Base Value</th>
+					<th>${baseValueTitle}</th>
 					<th>Racial Bonus</th>
 					<th>Ability Total</th>
 				</tr>
@@ -1020,7 +1286,7 @@ export class BuildCharacter {
 
 			// Check if the point allocation is valid
 
-			if (usedPoints == pb.totalPoints) {
+			if (usedPoints == pb.totalPoints || pb.abilityMethod == 'enter') {
 				recordAbilities(pb);
 			} else {
 				// Show an error message if the point allocation is invalid
@@ -1029,7 +1295,7 @@ export class BuildCharacter {
 		}
 
 		let next = await Dialog.wait({
-		  title: "Point Buy Ability Scores",
+		  title: "Select Ability Scores",
 		  content: content,
 		  buttons: {
 			previous: {
@@ -1055,45 +1321,158 @@ export class BuildCharacter {
 			},
 		  },
 		  default: "next",
+		  close: () => { return false; },
 		  render: (html) => { handleRender(this, html); }
-		});
+		}, {rejectClose: false} );
 		return next;
 	}
+	
+	async advancementComplete(am) {
+		if (!am || !am.steps)
+			return;
+
+		if (am.steps.length <= 0)
+			return;
+
+		let step0 = am.steps[0];
+		if (step0.type == 'reverse')
+			return;
+		
+		let item = step0?.flow?.item;
+		if (!item)
+			return;
+
+		if (item.flags['build-character'])
+			return;
+
+		if (item.type == 'class' || item.type == 'subclass') {
+			// FIX: for now only handle level 1. In future, could handle adding
+			// spells for drow at levels 3 and 5.
+
+			if (step0.class.level > 1)
+				return;
+		}
+
+		await this.readItemData();
+
+		let obj = null;
+
+		switch (item.type) {
+		case 'class':
+			obj = this.itemData.classes.find(r => item.name == r.name);
+			break;
+		case 'subclass':
+			obj = this.itemData.subclasses.find(r => item.name == r.name);
+			break;
+		case 'background':
+			obj = this.itemData.backgrounds.find(r => item.name == r.name);
+			break;
+		}
+		if (!obj)
+			return;
+
+		let feature = {
+			name: item.name,
+			obj: obj,
+			pack: null,
+			uuid: null
+		};
+		
+		await this.setOtherData(am.actor, [feature]);
+		let next = await this.chooseSkills(am.actor, [feature]);
+		if (!next)
+			return;
+		await this.chooseSpells(am.actor, [feature]);
+	}
+	
+	async itemAdded(item) {
+		if (item.flags['build-character'])
+			return;
+		if (item.type == 'class')
+			return;
+
+		await this.readItemData();
+
+		let obj = null;
+
+		// Perform actions for races, subraces and backgrounds that don't
+		// have advancement steps.
+
+		switch (item.type) {
+		case 'background':
+			obj = this.itemData.backgrounds.find(r => item.name == r.name);
+			break;
+		case 'feat':
+			// Race or subrace. Also set value on character sheet.
+			obj = this.itemData.races.find(r => item.name == r.name);
+			if (!obj)
+				obj = this.itemData.subraces.find(r => item.name == r.name);
+			if (obj)
+				item.parent.update({"data.details.race": item.name});
+			break;
+		}
+		if (!obj)
+			return;
+
+		let feature = {
+			name: item.name,
+			obj: obj,
+			pack: null,
+			uuid: null
+		};
+
+		await this.setOtherData(item.parent, [feature]);
+		let next = await this.chooseSkills(item.parent, [feature]);
+		if (!next)
+			return;
+		await this.chooseSpells(item.parent, [feature]);
+		await this.addFeatures(item.parent, feature);
+	}
+
 	
 	finish() {
 		// console.log(`build-character | Finished setting abilities for ${this.actor.name}`);
 	}
 
 	static {
-		// console.log("build-character | Point Buy Calculator character filter loaded.");
+		let itemData = undefined;
+
+		// console.log("build-character | loaded.");
+		/*
 
 		Hooks.on("init", function() {
-		  //console.log("build-character | Point Buy Calculator initialized.");
+		  //console.log("build-character | initialized.");
 		});
 
 		Hooks.on("ready", function() {
-		  //console.log("build-character | Point Buy Calculator ready to accept game data.");
+		  //console.log("build-character | ready to accept game data.");
 		});
 
-		/*
 		Hooks.on("dropActorSheetData", async function(actor, sheet, data) {
 		  console.log(`build-character | dropped item on ${actor.name}.`);
 		});
 		*/
-		Hooks.on("postCreateEmbeddedData", async function(actor, sheet, data) {
-		  console.log(`build-character | postCreateEmbeddedData ${actor.name}.`);
+		Hooks.on("dnd5e.advancementManagerComplete", async function(am) {
+		  console.log(`build-character | advancementManagerComplete ${am}.`);
+		  let bc = new BuildCharacter();
+		  if (bc)
+			  bc.advancementComplete(am);
 		});
-		Hooks.on("createItem", async function(actor, sheet, data) {
-		  console.log(`build-character | createItem ${actor.name}.`);
+
+		Hooks.on("createItem", async function(item, sheet, data) {
+		  console.log(`build-character | createItem ${item.name} on ${item.parent.name}.`);
+		  let bc = new BuildCharacter();
+		  if (bc)
+			  bc.itemAdded(item);
 		});
 
 	}
 }
 
-async function doDialog(dlg, msg) {
+async function doDialog(dlg, msg, options) {
 	let result;
 	try {
-		result = await Dialog.wait(dlg);
+		result = await Dialog.wait(dlg, {}, options);
 	} catch (m) {
 		ui.notifications.warn(msg);
 		return false;
@@ -1106,9 +1485,21 @@ async function doDialog(dlg, msg) {
  * Create the configuration settings.
  */
 Hooks.once('init', async function () {
+
+	game.settings.register('build-character', 'abilityMethod', {
+	  name: 'Ability selection method',
+	  config: true,
+	  type: String,
+	  default: 'enter',
+	  choices: {
+		"pointbuy": "Point Buy",
+		"enter": "Enter Die Rolls"
+	  },
+	});
+
 	game.settings.register('build-character', 'budget', {
 	  name: 'Points available for abilities',
-	  hint: 'This is the number of points available for buying abilities.',
+	  hint: 'This is the number of points available for buying abilities with point buy.',
 	  scope: 'client',     // "world" = sync to db, "client" = local storage
 	  config: true,       // false if you dont want it to show in module config
 	  type: Number,       // Number, Boolean, String, Object
@@ -1169,7 +1560,7 @@ Hooks.once('init', async function () {
 	});
 	let defToken = 'icons/svg/mystery-man.svg';
 	game.settings.register('build-character', 'defaulttoken', {
-	  name: 'Default taken',
+	  name: 'Default token',
 	  hint: 'Name of the image file used as the token for new characters.',
 	  scope: 'client',     // "world" = sync to db, "client" = local storage
 	  config: true,       // false if you dont want it to show in module config
@@ -1201,7 +1592,25 @@ function insertActorHeaderButtons(actorSheet, buttons) {
 			if (bc)
 				bc.finish();
 		}
-
+    }
+  });
+  buttons.unshift({
+    label: "Set Abilities",
+    icon: "fas fa-calculator",
+    class: "set-ability-button",
+    onclick: async () => {
+		let bc = null;
+		try {
+			bc = new BuildCharacter();
+			await bc.readItemData();
+			if (!await bc.selectAbilities(actor, null, null))
+				return false;
+		} catch (msg) {
+			ui.notifications.warn(msg);
+		} finally {
+			if (bc)
+				bc.finish();
+		}
     }
   });
 }
