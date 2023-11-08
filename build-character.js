@@ -62,6 +62,7 @@ export class BuildCharacter {
 		this.itemData.customLanguages = [];
 		this.itemData.customText = {};
 		this.itemData.spells = [];
+		this.itemData.categories = [];
 		
 		let fileNames = [
 			game.settings.get('build-character', 'auxdata'),
@@ -90,7 +91,6 @@ export class BuildCharacter {
 				const confirmation = await Dialog.prompt({
 					content: `<p>${file}</p><p>JSON format error: ${msg}.</p>`
 				});
-				ui.notifications.warn(`${file}: JSON format error: ${msg}.`);
 			}
 			
 			function additems(itemData, list) {
@@ -141,6 +141,22 @@ export class BuildCharacter {
 			if (data.customLanguages !== undefined) {
 				for (let lang of data.customLanguages)
 					this.itemData.customLanguages.push(lang);
+			}
+
+			if (data.categories) {
+				for (const cat of data.categories) {
+					if (!this.itemData[cat])
+						this.itemData[cat] = [];
+					if (this.itemData.categories.findIndex(c => c == cat) < 0)
+						this.itemData.categories.push(cat);
+				}
+			}
+			
+			for (const cat of this.itemData.categories) {
+				if (data[cat]) {
+					for (const entry of data[cat])
+						this.itemData[cat].push(entry);
+				}
 			}
 
 			// Only allow one set of exclusions, which should be included in the
@@ -247,16 +263,76 @@ export class BuildCharacter {
 	}
 
 	async addFeatures(actor, it) {
+		
+		async function chooseFeatures(bc, f) {
+			let items = [];
+			if (f.category) {
+				if (bc.itemData[f.category]) {
+					for (let name of bc.itemData[f.category]) {
+						for (const pack of game.packs) {
+							if (pack.metadata.type === 'Item') {
+								let entry = pack.index.find(e => name == e.name);
+								if (entry) {
+									items.push({name: name, uuid: entry.uuid});
+								}
+							}
+						}
+					}
+				}
+			}
+			
+			if (items.length <= 0)
+				return;
+
+			let content = bc.choiceContent(items, f.choose, `Make a selection for ${it.name}`);
+			let pickedItems = [];
+			let result = await doDialog({
+			  title: "Choose Items",
+			  content: content,
+			  buttons: {
+				ok: {
+				  label: "OK",
+				  icon: '<i class="fas fa-angles-right"></i>',
+				  callback: async (html) => {
+					  pickedItems = bc.getChoices(html, items);
+					  return true;
+				  },
+				},
+				cancel: {
+					label: "Cancel",
+					callback: (html) => { return false; }
+				},
+			  },
+			  default: "ok",
+			  close: () => { return false; },
+			  render: (html) => { bc.handleChoiceRender(this, html); }
+			}, "", {width: 600});
+			if (result) {
+				for (const item of pickedItems) {
+					await createItem(item);
+				}
+			}
+		}
+		
+		async function createItem(f) {
+			const feature = await fromUuid(f.uuid);
+			if (!feature)
+				throw new Error(`Feature ${f.name}[${f.uuid}] for ${it.name} not found in compendium`);
+			let itemData = feature.toObject();
+			itemData.flags['build-character'] = {added: true};
+			let ids = await actor.createEmbeddedDocuments("Item", [itemData]);
+			if (ids)
+				f.id = ids[0];
+		}
+
+
 		if (it.obj.features !== undefined) {
 			for (let f of it.obj.features) {
-				const feature = await fromUuid(f.uuid);
-				if (!feature)
-					throw new Error(`Feature ${f.name}[${f.uuid}] for ${it.name} not found in compendium`);
-				let itemData = feature.toObject();
-				itemData.flags['build-character'] = {added: true};
-				let ids = await actor.createEmbeddedDocuments("Item", [itemData]);
-				if (ids)
-					f.id = ids[0];
+				if (f.uuid) {
+					createItem(f);
+				} else if (f.choose) {
+					await chooseFeatures(this, f);
+				}
 			}
 		}
 	}
@@ -302,7 +378,7 @@ export class BuildCharacter {
 		  render: (html) => {
 			  html.find("#name").focus();
 			}
-		});
+		}, "", {width: 600});
 
 		if (!result || !name)
 			return false;
@@ -452,6 +528,61 @@ export class BuildCharacter {
 	 */
 
 	async setOtherData(actor, features) {
+		let bc = this;
+		async function chooseProfs(count, trait, profs, custom) {
+			let choices = [];
+			if (trait == 'languages') {
+				for (let lang of Object.keys(CONFIG.DND5E.languages))
+					choices.push({name: CONFIG.DND5E.languages[lang], key: lang});
+			}
+			
+			let prompt = `<p>Choose ${count} ${trait}</p>`;
+
+			let content = bc.choiceContent(choices, count, prompt);
+
+			let result = await doDialog({
+			  title: `Choose ${trait}`,
+			  content: content,
+			  buttons: {
+				ok: {
+				  label: "OK",
+				  icon: '<i class="fas fa-angles-right"></i>',
+				  callback: async (html) => {
+					  let chosenItems = bc.getChoices(html, choices);
+					  for (let it  of chosenItems)
+						  profs.push(it.key);
+					  return true;
+				  }
+				},
+				cancel: {
+					label: "Cancel",
+					callback: (html) => { return false; }
+				}
+			  },
+			  default: "ok",
+			  close: () => { return false; },
+			  render: (html) => { bc.handleChoiceRender(bc, html); }
+			}, "", {width: 600});
+		}
+
+		async function addProfs(list, trait) {
+			if (!list)
+				return;
+			let profs = [];
+			for (const p of actor.system.traits[trait].value)
+				profs.push(p);
+			let custom = [];
+			for (const item of list) {
+				if (item.name)
+					profs.push(item.name);
+				else if (item.choose)
+					await chooseProfs(item.choose, trait, profs, custom);
+			}
+			actor.update({[`system.traits.${trait}.value`]: profs});
+			if (custom.length)
+				actor.update({[`system.traits.${trait}.custom`]: custom.join(';')});
+		}
+
 		for (const f of features) {
 			if (!f)
 				continue;
@@ -476,17 +607,15 @@ export class BuildCharacter {
 			}
 			if (f.obj.armor) {
 				//let armor = structuredClone(actor.system.traits.armorProf);
-				let armor = actor.system.traits.armorProf;
-				let changed = false;
-				for (let a of f.obj.armor) {
-					if (!armor.value.has(a.name)) {
-						armor.value.add(a.name);
-						changed = true;
-					}
-				}
-				if (changed)
-					actor.update({"data.traits.armorProf": armor});
+				let armor = [];
+				for (const a of f.obj.armor)
+					armor.push(a.name);
+				actor.update({"system.traits.armorProf.value": armor});
 			}
+			
+			await addProfs(f.obj.armor, "armorProf");
+			await addProfs(f.obj.weapons, "weaponProf");
+			await addProfs(f.obj.languages, "languages");
 		}
 	}
 
@@ -583,6 +712,7 @@ export class BuildCharacter {
 			},
 		  },
 		  default: "ok",
+		  close: () => { return false; },
 		  render: (html) => { this.handleChoiceRender(this, html); }
 		}, "", {width: 600});
 		return pickedSkills;
@@ -705,6 +835,7 @@ export class BuildCharacter {
 			},
 		  },
 		  default: "next",
+		  close: () => { return false; },
 		  render: (html) => { this.handleChoiceRender(this, html); }
 		}, {width: 600});
 
@@ -732,6 +863,8 @@ export class BuildCharacter {
 		});
 		
 		let choiceText = "";
+
+		let colwidth = Math.trunc(100 / Math.min(3, 1+Math.trunc(choices.length/15)));
 
 		let i = 0;
 		let count = 0;
@@ -771,7 +904,7 @@ export class BuildCharacter {
 				align-items: center;
 				display: flex;
 				flex-grow: 1;
-				width: 50%;
+				width: ${colwidth}%;
 			}
 			.checkbox {
 				flex-grow: 1;
@@ -1033,7 +1166,7 @@ export class BuildCharacter {
 		  },
 		  default: "next",
 		  render: (html) => { this.handleChoiceRender(this, html); }
-		});
+		}, {width: 600});
 		return [next, chosenBackground ? chosenBackground[0] : undefined];
 	}
 
@@ -1198,6 +1331,18 @@ export class BuildCharacter {
 			}
 		}
 
+		if (!race) {
+			await Dialog.prompt({
+			  title: "Select Abilities: No Race Found",
+			  content: `There is no race in the Features tab of the character sheet.<br><br>
+				Drag and drop a race and subrace onto the character sheet before selecting abilities.
+				These are needed to determine the racial bonuses for the abilities.<br><br>`,
+			  label: "OK",
+			  callback: (html) => { ; }
+			});
+			return;
+		}
+
 		let choose = this.setAbilityBonuses(race);
 		if (subrace) {
 			let info = this.setAbilityBonuses(subrace);
@@ -1339,7 +1484,7 @@ export class BuildCharacter {
 			return;
 		
 		let item = step0?.flow?.item;
-		if (!item)
+		if (!item || item.type != 'class')
 			return;
 
 		if (item.flags['build-character'])
@@ -1353,21 +1498,11 @@ export class BuildCharacter {
 				return;
 		}
 
+		item.flags['build-character'] = {added: true};
+
 		await this.readItemData();
 
-		let obj = null;
-
-		switch (item.type) {
-		case 'class':
-			obj = this.itemData.classes.find(r => item.name == r.name);
-			break;
-		case 'subclass':
-			obj = this.itemData.subclasses.find(r => item.name == r.name);
-			break;
-		case 'background':
-			obj = this.itemData.backgrounds.find(r => item.name == r.name);
-			break;
-		}
+		let obj = this.itemData.classes.find(r => item.name == r.name);
 		if (!obj)
 			return;
 
@@ -1391,6 +1526,8 @@ export class BuildCharacter {
 		if (item.type == 'class')
 			return;
 
+		item.flags['build-character'] = {added: true};
+
 		await this.readItemData();
 
 		let obj = null;
@@ -1405,12 +1542,23 @@ export class BuildCharacter {
 		case 'feat':
 			// Race or subrace. Also set value on character sheet.
 			obj = this.itemData.races.find(r => item.name == r.name);
-			if (!obj)
+			if (!obj) {
 				obj = this.itemData.subraces.find(r => item.name == r.name);
+				if (obj && obj.race) {
+					if (!item.parent.items.find(r => r.name == obj.race))
+						Dialog.prompt({title: "Race Missing",
+							content: `<p>The ${obj.name} subrace requires the ${obj.race} race.<p>`
+						});
+				}
+			}
 			if (obj)
 				item.parent.update({"data.details.race": item.name});
 			break;
+		case 'subclass':
+			obj = this.itemData.subclasses.find(r => item.name == r.name);
+			break;
 		}
+
 		if (!obj)
 			return;
 
@@ -1515,7 +1663,7 @@ Hooks.once('init', async function () {
 	  config: true,
 	  type: String,
 	  filePicker: true,
-	  default: "modules/build-character/srdData.json",
+	  default: "modules/build-character/srdBuildData.json",
 	});
 
 	game.settings.register('build-character', 'customdata', {
@@ -1524,7 +1672,7 @@ Hooks.once('init', async function () {
 	  config: true,
 	  type: String,
 	  filePicker: true,
-	  default: ""
+	  default: "modules/build-character/phbBuildData.json"
 	});
 
 	game.settings.register('build-character', 'worlddata', {
@@ -1576,6 +1724,7 @@ Hooks.once('init', async function () {
 
 function insertActorHeaderButtons(actorSheet, buttons) {
   let actor = actorSheet.object;
+/*
   buttons.unshift({
     label: "Build Character",
     icon: "fas fa-user-plus",
@@ -1594,6 +1743,7 @@ function insertActorHeaderButtons(actorSheet, buttons) {
 		}
     }
   });
+*/
   buttons.unshift({
     label: "Set Abilities",
     icon: "fas fa-calculator",
@@ -1616,6 +1766,8 @@ function insertActorHeaderButtons(actorSheet, buttons) {
 }
 
 Hooks.on("getActorSheetHeaderButtons", insertActorHeaderButtons);
+
+/*
 
 function hasPermission() {
     const userRole = game.user.role;
@@ -1651,3 +1803,5 @@ Hooks.on("renderActorDirectory", (app, html, data) => {
 		}
     });
 });
+
+*/

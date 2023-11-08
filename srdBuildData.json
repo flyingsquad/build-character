@@ -1,4 +1,5 @@
 {
+	"categories": ["feats"],
 	"races": [
 		{
 			"name": "Dragonborn",
@@ -90,6 +91,28 @@
 			]
 		},
 		{
+			"name": "Half-Orc",
+			"abilities": {
+				"description": "Your Strength score increases by 2, and your Constitution score increases by 1.",
+				"Strength": 2,
+				"Constitution": 1
+			},
+			"size": "med",
+			"speed": 30,
+			"darkvision": 60,
+			"features": [
+				{"name": "Relentless Endurance", "uuid": "Compendium.dnd5e.races.Item.97c8i9Z28thvZuA8"},
+				{"name": "Savage Attacks", "uuid": "Compendium.dnd5e.races.Item.0kUsT4sMUOr5FcoX"}
+			],
+			"skills": [
+				{"name": "itm"}
+			],
+			"languages": [
+				{"name": "common"},
+				{"name": "orc"}
+			]
+		},
+		{
 			"name": "Halfling",
 			"abilities": {
 				"description": "Your Dexterity score increases by 2.",
@@ -122,6 +145,20 @@
 			"speed": 30,
 			"languages": [
 				{"name": "common"},
+				{"choose": 1}
+			]
+		},
+		{
+			"name": "Variant Human",
+			"abilities": {
+				"description": "Two different ability scores of your choice increase by 1."
+			},
+			"size": "med",
+			"speed": 30,
+			"features": [
+				{"choose": 1, "category": "feats"}
+			],
+			"skills": [
 				{"choose": 1}
 			]
 		}
@@ -179,8 +216,8 @@
 				{"name": "ins"},
 				{"name": "rel"}
 			],
-			"features": [
-				{"name": "Shelter of the Faithful", "uuid": "Compendium.dnd5e.backgrounds.Item.64N1NWh9kC1dI7zN"}
+			"languages": [
+				{"choose": 2}
 			]
 		}
 	],
@@ -520,5 +557,8 @@
 				"Alarm", "Burning Hands", "Charm Person", "Color Spray", "Comprehend Languages", "Detect Magic",	"Disguise Self", "Expeditious Retreat", "False Life", "Feather Fall", "Find Familiar", "Floating Disk", "Fog Cloud", "Grease", "Hideous Laughter", "Identify", "Illusory Script", "Jump", "Longstrider", "Mage Armor", "Magic Missile", "Protection from Evil and Good", "Shield", "Silent Image", "Sleep", "Thunderwave", "Unseen Servant"
 			]
 		}
+	],
+	"feats": [
+		"Grappler"
 	]
 }
