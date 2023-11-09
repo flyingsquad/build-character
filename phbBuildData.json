@@ -266,13 +266,28 @@
 			"name": "Eldritch Knight",
 			"class": "Fighter",
 			"spells": [
-				{"choose": 2, "level": "cantrip", "class": "wizard", "schools": ["evo", "abj"]},
-				{"choose": 3, "level": 1, "class": "wizard"}
+				{"choose": 2, "level": "cantrip", "class": "wizard"},
+				{"choose": 2, "level": 1, "class": "wizard", "schools": ["evo", "abj"], "prompt": "Pick two spells from the Evocation or Abjuration school."},
+				{"choose": 1, "level": 1, "class": "wizard", "prompt": "Pick any spell from the wizard spell list."}
 			]
 		},
 		{
 			"name": "Rune Knight",
 			"class": "Fighter"
+		},
+
+		{
+			"name": "Arcane Trickster",
+			"class": "Rogue",
+			"spells": [
+				{
+					"name": "Mage Hand",
+					"uuid": "Compendium.dnd5e.spells.Item.Utk1OQRwYkMkFRD3"
+				},
+				{"choose": 2, "level": "cantrip", "class": "wizard"},
+				{"choose": 1, "level": 1, "class": "wizard"},
+				{"choose": 2, "level": 1, "class": "wizard", "schools": ["enc", "ill"], "prompt": "Choose two spells from the Enchantment or Illusion school."}
+			]
 		},
 
 		{

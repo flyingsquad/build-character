@@ -528,17 +528,35 @@ export class BuildCharacter {
 	 */
 
 	async setOtherData(actor, features) {
+
 		let bc = this;
+
 		async function chooseProfs(count, trait, profs, custom) {
 			let choices = [];
+			let alreadyHave = [];
 			if (trait == 'languages') {
-				for (let lang of Object.keys(CONFIG.DND5E.languages))
-					choices.push({name: CONFIG.DND5E.languages[lang], key: lang});
+				for (let lang of Object.keys(CONFIG.DND5E.languages)) {
+					if (profs.findIndex(l => l == lang) >= 0)
+						alreadyHave.push(CONFIG.DND5E.languages[lang]);
+					else
+						choices.push({name: CONFIG.DND5E.languages[lang], key: lang});
+				}
+				alreadyHave = alreadyHave.concat(custom);
 			}
 			
+
 			let prompt = `<p>Choose ${count} ${trait}</p>`;
+			
+			if (profs.length || custom.length) {
+				let str = alreadyHave.join('; ');
+				prompt += `<p>You already have the following ${trait}: ${str}</p>`;
+			}
 
 			let content = bc.choiceContent(choices, count, prompt);
+			content += `<div style="display: flex; bottom-margin: 13px">
+				<label for="custom" style="flex-grow: 1">Custom ${trait} (separate with semicolons): </label>
+				<input type="text" name="custom" id="custom" style="flex-grow: 1">
+				</div>`;
 
 			let result = await doDialog({
 			  title: `Choose ${trait}`,
@@ -549,8 +567,12 @@ export class BuildCharacter {
 				  icon: '<i class="fas fa-angles-right"></i>',
 				  callback: async (html) => {
 					  let chosenItems = bc.getChoices(html, choices);
-					  for (let it  of chosenItems)
+					  for (let it of chosenItems)
 						  profs.push(it.key);
+					  let cust = html.find("#custom").val();
+					  if (cust)
+						  for (let lang of cust.split(/; */))
+							  custom.push(lang);
 					  return true;
 				  }
 				},
@@ -571,7 +593,7 @@ export class BuildCharacter {
 			let profs = [];
 			for (const p of actor.system.traits[trait].value)
 				profs.push(p);
-			let custom = [];
+			let custom = actor.system.traits[trait].custom.split(/; */);
 			for (const item of list) {
 				if (item.name)
 					profs.push(item.name);
@@ -587,8 +609,11 @@ export class BuildCharacter {
 			if (!f)
 				continue;
 			if (f.obj.saves !== undefined) {
-				for (const save of f.obj.saves)
-					actor.update({[`data.abilities.${this.abilityNames[save]}.proficient`]: 1});
+				if (actor.system.details.level <= 1) {
+					// Only the first class gets saving throw proficiencies.
+					for (const save of f.obj.saves)
+						actor.update({[`data.abilities.${this.abilityNames[save]}.proficient`]: 1});
+				}
 			}
 			if (f.obj.darkvision) {
 				if (actor.system.attributes.senses.darkvision < f.obj.darkvision) {
@@ -803,14 +828,18 @@ export class BuildCharacter {
 		// Report any items that weren't found in a pack to check for typoes.
 
 		for (let name of list) {
-			if (!spells.find((s) => name = s.name))
+			if (!spells.find((s) => name == s.name))
 				ui.notifications.warn(`build-character | Did not find ${name} in any compendium.`);
 		}
 		
 		let title = "Select Spells";
 		
 		let type = s.level == 'cantrip' ? 'cantrip(s)' : `level ${s.level} spell(s)`;
-		let description = `Select ${s.choose} ${type} for ${feature.name}.`;
+		let description;
+		if (s.prompt)
+			description = s.prompt;
+		else
+			description = `Select ${s.choose} ${type} for ${feature.name}.`;
 		if (alreadySelected.length > 0)
 			description += "<br><br>Already selected: " + alreadySelected.join(', ');
 
@@ -933,20 +962,22 @@ export class BuildCharacter {
 			let html = e.data;
 			switch (e.target.nodeName) {
 			case 'INPUT':
-				let lim = html.find("#limit");
-				let limit = lim[0].innerText;
-				limit = parseInt(limit);
-				let cnt = html.find("#count");
-				let count = parseInt(cnt[0].innerText);
-				if (e.target.checked)
-					count++;
-				else
-					count--;
-				if (count > limit) {
-					e.target.checked = false;
-					count--;
+				if (e.target.type == 'checkbox') {
+					let lim = html.find("#limit");
+					let limit = lim[0].innerText;
+					limit = parseInt(limit);
+					let cnt = html.find("#count");
+					let count = parseInt(cnt[0].innerText);
+					if (e.target.checked)
+						count++;
+					else
+						count--;
+					if (count > limit) {
+						e.target.checked = false;
+						count--;
+					}
+					cnt.text(count);
 				}
-				cnt.text(count);
 				break;
 			}
 		});
@@ -1622,7 +1653,7 @@ async function doDialog(dlg, msg, options) {
 	try {
 		result = await Dialog.wait(dlg, {}, options);
 	} catch (m) {
-		ui.notifications.warn(msg);
+		ui.notifications.warn(m);
 		return false;
 	}
 	return result;
