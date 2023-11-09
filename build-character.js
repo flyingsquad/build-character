@@ -541,22 +541,20 @@ export class BuildCharacter {
 					else
 						choices.push({name: CONFIG.DND5E.languages[lang], key: lang});
 				}
-				alreadyHave = alreadyHave.concat(custom);
+				if (custom.length > 0)
+					alreadyHave = alreadyHave.concat(custom);
 			}
-			
 
 			let prompt = `<p>Choose ${count} ${trait}</p>`;
 			
 			if (profs.length || custom.length) {
-				let str = alreadyHave.join('; ');
+				let str = alreadyHave.join(', ');
 				prompt += `<p>You already have the following ${trait}: ${str}</p>`;
 			}
 
 			let content = bc.choiceContent(choices, count, prompt);
-			content += `<div style="display: flex; bottom-margin: 13px">
-				<label for="custom" style="flex-grow: 1">Custom ${trait} (separate with semicolons): </label>
-				<input type="text" name="custom" id="custom" style="flex-grow: 1">
-				</div>`;
+			content += `<p><label for="custom" style="flex-grow: 1">Custom ${trait} (separate with semicolons): </label><br>
+				<input type="text" name="custom" id="custom" style="flex-grow: 1"></p>`;
 
 			let result = await doDialog({
 			  title: `Choose ${trait}`,
@@ -593,7 +591,9 @@ export class BuildCharacter {
 			let profs = [];
 			for (const p of actor.system.traits[trait].value)
 				profs.push(p);
-			let custom = actor.system.traits[trait].custom.split(/; */);
+			let custom = [];
+			if (actor.system.traits[trait].custom)
+				custom = actor.system.traits[trait].custom.split(/; */);
 			for (const item of list) {
 				if (item.name)
 					profs.push(item.name);
