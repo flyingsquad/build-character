@@ -108,7 +108,7 @@ export class BuildCharacter {
 			function addspells(itemData, list) {
 				function addMissing(lev, obj) {
 					for (let s of obj.spells) {
-						if (!lev.spells.find(name => name == s))
+						if (!lev.spells.includes(s))
 							lev.spells.push(s);
 					}
 				}
@@ -126,6 +126,13 @@ export class BuildCharacter {
 							let lev = itemData.find((v) => v.class  == obj.class);
 							if (lev) {
 								addMissing(lev, obj);
+							} else {
+								itemData.push(obj);
+							}
+						} else if (obj.school) {
+							let school = itemData.find((v) => v.school  == obj.school);
+							if (school) {
+								addMissing(school, obj);
 							} else {
 								itemData.push(obj);
 							}
@@ -339,191 +346,15 @@ export class BuildCharacter {
 		}
 	}
 
-	flexCSS = `<style>
-				.container {
-					display: flex;
-					flex-wrap: nowrap;
-					align-items: center;
-				}
-				.input {
-					flex-grow: 4;
-				}
-				.label {
-					flex-grow: 1;
-				}
-			</style>`;
-
-	async createCharacter() {
-		let name = "";
-		let result;
-		result = await doDialog({
-		  title: "Build Character",
-		  content: this.flexCSS + `<div class="container">
-				<label class="label" for="name">Name&nbsp;&nbsp;</label>
-				<input class="input" type="text" id="name" name="name" autofocus>
-			</div><br>`,
-		  buttons: {
-			create: {
-			  label: "Create Character",
-			  icon: '<i class="fas fa-angles-right"></i>',
-			  callback: async (html) => {
-				  name = html.find("#name").val();
-				  return true;
-			  },
-			},
-			cancel: {
-				label: "Cancel",
-				callback: (html) => { return false; }
-			},
-		  },
-		  default: "create",
-		  render: (html) => {
-			  html.find("#name").focus();
-			}
-		}, "", {width: 600});
-
-		if (!result || !name)
-			return false;
-		
-		let actor = await Actor.create({
-		  name: name,
-		  type: "character",
-		  img: game.settings.get('build-character', 'defaultportrait')
-		});
-		// FIX: set the default token as well.
-		actor.update({"prototypeToken.texture.src": game.settings.get('build-character', 'defaulttoken')});
-
-		actor.sheet.render(true)
-		await this.buildCharacter(actor);
-	}
-
-
-	async buildCharacter(actor) {
-		await this.readItemData();
-
-		this.actor = actor;
-
-		// Get a list of backgrounds, races, classes and ask user if they
-		// want to delete them.
-
-		let items = [];
-
-		items = items.concat(actor.items.filter(it => it.type == 'background'));
-
-		items = items.concat(actor.items.filter(it => {
-				if (it.type == 'feat') {
-					if (this.itemData.subraces.find(r => it.name == r.name))
-						return true;
-					return this.itemData.races.find(r => it.name == r.name);
-				}
-				return undefined;
-			}
-		));
-		items = items.concat(actor.items.filter(it => it.type == 'class'));
-		items = items.concat(actor.items.filter(it => it.type == 'subclass'));
-
-		if (items.length > 0) {
-			
-			let list = "";
-			for (let it of items)
-				list += "<br>&nbsp;&nbsp;&nbsp;&nbsp;* " + it.name;
-
-			let deleteIt = await Dialog.confirm({
-			  title: "Established Character",
-			  content: "The character already has already been created with the following items:<br>" +
-				list +
-				"<br><br>Do you wish to delete these and start from scratch?<br><br>",
-			  yes: (html) => { return true; },
-			  no: (html) => { return false },
-			  default: "no"
-			});
-			if (!deleteIt)
-				return undefined;
-
-			deleteIt = await Dialog.confirm({
-			  title: "Are You Sure?",
-			  content: "Are you sure you want to delete these items?<br>" + list + "<br><br>",
-			  yes: (html) => { return true; },
-			  no: (html) => { return false },
-			  default: "no"
-			});
-			if (!deleteIt)
-				return;
-
-			let ids = [];
-			for (let it of items) {
-				ids.push(it.id);
-			}
-			await actor.deleteEmbeddedDocuments("Item", ids, { isAdvancement: true });
-		}
-
-		let step = 1;
-		let next = 0;
-		let chosenRace = undefined;
-		let chosenSubrace = undefined;
-		let chosenBackground = undefined;
-		let chosenClass = undefined;
-		let chosenSubclass = undefined;
-
-		for (;;) {
-			switch (step) {
-			case 1:
-				[next, chosenRace] = await this.getRace(actor, chosenRace);
-				break;
-
-			case 2:
-				// This will be null if there is no subrace available, undefined if
-				// user exited.
-				if (next < 0 && chosenSubrace == null)
-					;
-				else
-					[next, chosenSubrace] = await this.getSubrace(actor, chosenRace.name, chosenSubrace);
-				break;
-			
-			case 3:
-				[next, chosenBackground] = await this.getBackground(actor, chosenBackground);
-				break;
-				
-			case 4:
-				[next, chosenClass] = await this.getClass(actor, chosenClass);
-				break;
-				
-			case 5:
-				[next, chosenSubclass] = await this.getSubclass(actor, chosenClass.name, chosenSubclass);
-				break;
-				
-			case 6:
-				next = await this.selectAbilities(actor, chosenRace, chosenSubrace);
-				break;
-			}
-			if (next == 0)
-				return;
-			step += next < 0 ? -1 : +1;
-			if (step > 6)
-				break;
-		}
-
-		// Set values on character sheet and allow user to make selections.
-
-		if (chosenSubrace != null)
-			actor.update({"data.details.race": chosenSubrace.name});
-		else
-			actor.update({"data.details.race": chosenRace.name});
-
-		next = await this.chooseSkills(actor, [chosenRace, chosenSubrace, chosenBackground, chosenClass, chosenSubclass]);
-		if (!next)
-			return;
-
-		await this.addItems(actor, [chosenRace, chosenSubrace, chosenBackground]);
-		await this.setOtherData(actor, [chosenRace, chosenSubrace, chosenBackground, chosenClass, chosenSubclass]);
-		await this.chooseSpells(actor, [chosenRace, chosenSubrace, chosenBackground, chosenClass, chosenSubclass]);
-		await this.addItems(actor, [chosenClass, chosenSubclass]);
-	}
-	
 	skillName(key) {
+		return dnd5e.documents.Trait.keyLabel("skills", key);
 		if (CONFIG.DND5E.skills[key] === undefined)
 			return key;
 		return CONFIG.DND5E.skills[key].label;
+	}
+
+	langName(key) {
+		return dnd5e.documents.Trait.keyLabel("languages", key);
 	}
 
 	/**	Set data like saves, darkvision, etc.
@@ -539,12 +370,17 @@ export class BuildCharacter {
 			if (trait == 'languages') {
 				for (let lang of Object.keys(CONFIG.DND5E.languages)) {
 					if (profs.findIndex(l => l == lang) >= 0)
-						alreadyHave.push(CONFIG.DND5E.languages[lang]);
+						alreadyHave.push(bc.langName(lang));
 					else
-						choices.push({name: CONFIG.DND5E.languages[lang], key: lang});
+						choices.push({name: bc.langName(lang), key: lang});
 				}
 				if (custom.length > 0)
 					alreadyHave = alreadyHave.concat(custom);
+				for (let lang of bc.itemData.customLanguages) {
+					if (alreadyHave.findIndex(l => l == lang) < 0) {
+						choices.push({name: lang, key: lang, custom: true});
+					}
+				}
 			}
 
 			let prompt = `<p>Choose ${count} ${trait}</p>`;
@@ -567,8 +403,12 @@ export class BuildCharacter {
 				  icon: '<i class="fas fa-angles-right"></i>',
 				  callback: async (html) => {
 					  let chosenItems = bc.getChoices(html, choices);
-					  for (let it of chosenItems)
-						  profs.push(it.key);
+					  for (let it of chosenItems) {
+						  if (it.custom)
+							  custom.push(it.key);
+						  else
+							  profs.push(it.key);
+					  }
 					  let cust = html.find("#custom").val();
 					  if (cust)
 						  for (let lang of cust.split(/; */))
@@ -601,6 +441,8 @@ export class BuildCharacter {
 					profs.push(item.name);
 				else if (item.choose)
 					await chooseProfs(item.choose, trait, profs, custom);
+				else if (item.custom)
+					custom.push(item.custom);
 			}
 			actor.update({[`system.traits.${trait}.value`]: profs});
 			if (custom.length)
@@ -619,6 +461,7 @@ export class BuildCharacter {
 		
 		function getToolName(key) {
 			let name;
+			return dnd5e.documents.Trait.keyLabel("tool", key);		
 			if (name = CONFIG.DND5E.vehicleTypes[key])
 				return name;
 			if (name = getItemName(CONFIG.DND5E.toolIds[key]))
@@ -664,12 +507,12 @@ export class BuildCharacter {
 					}
 				}
 				for (let tool of list)
-					choices.push({name: getItemName(CONFIG.DND5E.toolIds[tool]), key: tool});
+					choices.push({name: getToolName(tool), key: tool});
 			}
 			
 			if (choices.length == 0) {
 				for (let tool of Object.keys(CONFIG.DND5E.toolIds)) {
-					choices.push({name: getItemName(CONFIG.DND5E.toolIds[tool]), key: tool});
+					choices.push({name: getToolName(tool), key: tool});
 				}
 				prompt += "<p>You already have the tool granted by this feature from another source. Choose a different one.</p>";
 			}
@@ -915,7 +758,21 @@ export class BuildCharacter {
 		let alreadySelected = [];
 
 		for (let name of levelList.spells) {
-			if (classList.spells.find((n) => name == n)) {
+			if (classList.spells.includes(name)) {
+				if (s.schools) {
+					let found = false;
+					for (const school of s.schools) {
+						const schoolList = this.itemData.spells.find(sch => sch.school == school);
+						if (schoolList) {
+							if (schoolList.spells.includes(name)) {
+								found = true;
+								break;
+							}
+						}
+					}
+					if (!found)
+						continue;
+				}
 				if (actor.items.find(i => i.type == 'spell' && i.name == name))
 					alreadySelected.push(name);
 				else
@@ -1130,345 +987,7 @@ export class BuildCharacter {
 		}
 		return selections;
 	}
-	
-	async getRace(actor, prevRace) {
-		let races = [];
 
-		for (const pack of game.packs) {
-			if (pack.metadata.type === 'Item') {
-				for (let race of this.itemData.races) {
-					let r = pack.index.find((obj) => obj.type == 'feat' && race.name == obj.name);
-					if (r) {
-						let include = true;
-						if (this.itemData?.exclusions?.races)
-							include = this.itemData.exclusions.races.findIndex((r) => r == race.name) < 0;
-						if (include) races.push(
-							{
-								name: r.name,
-								pack: pack.metadata.id,
-								obj: race,
-								uuid: r.uuid
-							}
-						);
-					}
-				}
-			}
-		}
-
-		let title = "Select Race";
-		if (this.itemData?.customText?.race?.title)
-			title = this.itemData.customText.race.title;
-
-		let description = "Select your character's race.";
-		if (this.itemData?.customText?.race?.description)
-			description = this.itemData.customText.race.description;
-
-		let dlgOptions = {};
-		if (races.length > 10)
-			dlgOptions.width = 600;
-
-		let content = this.choiceContent(races, 1, description, [prevRace]);
-		let chosenRace = undefined;
-
-		let next = await Dialog.wait({
-		  title: title,
-		  content: content,
-		  buttons: {
-			next: {
-			  label: "Next",
-			  icon: '<i class="fas fa-angles-right"></i>',
-			  callback: async (html) => {
-				  chosenRace = this.getChoices(html, races);
-				  return +1;
-			  },
-			},
-			cancel: {
-				label: "Cancel",
-				callback: (html) => { return 0; }
-			},
-		  },
-		  default: "next",
-		  render: (html) => { this.handleChoiceRender(this, html); }
-		}, dlgOptions);
-
-		return [next, chosenRace ? chosenRace[0] : undefined];
-	}
-
-	async getSubrace(actor, race, prevSubrace) {
-		let subraces = [];
-
-		for (const pack of game.packs) {
-			if (pack.metadata.type === 'Item') {
-				for (let subrace of this.itemData.subraces) {
-					if (subrace.race != race)
-						continue;
-					let r = pack.index.find((obj) => obj.type == 'feat' && subrace.name == obj.name);
-					if (r) {
-						let include = true;
-						if (this.itemData?.exclusions?.races)
-							include = this.itemData.exclusions.races.findIndex((r) => r == subrace.name) < 0;
-						if (include) subraces.push(
-							{
-								name: r.name,
-								pack: pack.metadata.id,
-								obj: subrace,
-								uuid: r.uuid
-							}
-						);
-					}
-				}
-			}
-		}
-
-		if (subraces.length == 0)
-			return [+1, null];
-
-		let title = "Select Subrace";
-		if (this.itemData?.customText?.subrace?.title)
-			title = this.itemData.customText.subrace.title;
-
-		let description = `Select the subrace for ${race}.`;
-		if (this.itemData?.customText?.subrace?.description)
-			description = this.itemData.customText.subrace.description;
-
-		let content = this.choiceContent(subraces, 1, description, [prevSubrace]);
-		let chosenSubrace = undefined;
-
-		let next = await Dialog.wait({
-		  title: title,
-		  content: content,
-		  buttons: {
-			previous: {
-				label: "Previous",
-				icon: '<i class="fas fa-angles-left"></i>',
-				callback: (html) => {
-					chosenSubrace = this.getChoices(html, subraces);
-					return -1;
-				}
-			},
-			next: {
-			  label: "Next",
-			  icon: '<i class="fas fa-angles-right"></i>',
-			  callback: async (html) => {
-				  chosenSubrace = this.getChoices(html, subraces);
-				  return +1;
-			  },
-			},
-			cancel: {
-				label: "Cancel",
-				callback: (html) => { return 0; }
-			},
-		  },
-		  default: "ok",
-		  render: (html) => { this.handleChoiceRender(this, html); }
-		});
-		return [next, chosenSubrace ? chosenSubrace[0] : undefined];
-	}
-	
-	async getBackground(actor, prevBackground) {
-		// List all the backgrounds found.
-
-		let bgs = [];
-
-		for (const pack of game.packs) {
-			if (pack.metadata.type === 'Item') {
-				for (let bg of this.itemData.backgrounds) {
-					let b = pack.index.find((obj) => obj.type == 'background' && bg.name == obj.name);
-					if (b) {
-						let exclude = false;
-						if (this.itemData?.exclusions?.backgrounds !== undefined)
-							exclude = this.itemData.exclusions.backgrounds.findIndex((b) => b == bg.name);
-						if (!exclude) bgs.push(
-							{
-								name: b.name,
-								pack: pack.metadata.id,
-								obj: bg,
-								uuid: b.uuid
-							}
-						);
-					}
-				}
-			}
-		}
-
-		let title = "Select Background";
-		if (this.itemData?.customText?.background?.title)
-			title = this.itemData.customText.background.title;
-
-		let description = "Select your character's background.";
-		if (this.itemData?.customText?.background?.description)
-			description = this.itemData.customText.background.description;
-
-		let content = this.choiceContent(bgs, 1, description, [prevBackground]);
-		let chosenBackground = undefined;
-
-		let next = await Dialog.wait({
-		  title: title,
-		  content: content,
-		  buttons: {
-			previous: {
-				label: "Previous",
-				icon: '<i class="fas fa-angles-left"></i>',
-				callback: async (html) => {
-				  chosenBackground = this.getChoices(html, bgs);
-				  return -1;
-				},
-			},
-			next: {
-			  label: "Next",
-			  icon: '<i class="fas fa-angles-right"></i>',
-			  callback: async (html) => {
-				  chosenBackground = this.getChoices(html, bgs);
-				  return +1;
-			  },
-			},
-			cancel: {
-				label: "Cancel",
-				callback: (html) => { return false; }
-			},
-		  },
-		  default: "next",
-		  render: (html) => { this.handleChoiceRender(this, html); }
-		}, {width: 600});
-		return [next, chosenBackground ? chosenBackground[0] : undefined];
-	}
-
-	async getClass(actor, prevClass) {
-		let classes = [];
-
-		for (const pack of game.packs) {
-			if (pack.metadata.type === 'Item') {
-				for (let cls of this.itemData.classes) {
-					let c = pack.index.find((obj) => obj.type == 'class' && cls.name == obj.name);
-					if (c) {
-						let include = true;
-						if (this.itemData?.exclusions?.classes)
-							include = this.itemData.exclusions.classes.findIndex((r) => r == cls.name) < 0;
-						if (include) classes.push(
-							{
-								name: c.name,
-								pack: pack.metadata.id,
-								obj: cls,
-								uuid: c.uuid
-							}
-						);
-					}
-				}
-			}
-		}
-
-		let title = "Select Class";
-		if (this.itemData?.customText?.class?.title)
-			title = this.itemData.customText.class.title;
-
-		let description = "Select your character's class.";
-		if (this.itemData?.customText?.class?.description)
-			description = this.itemData.customText.class.description;
-
-		let content = this.choiceContent(classes, 1, description, [prevClass]);
-		let chosenClass = undefined;
-
-		let next = await Dialog.wait({
-		  title: title,
-		  content: content,
-		  buttons: {
-			previous: {
-				label: "Previous",
-				icon: '<i class="fas fa-angles-left"></i>',
-				callback: async (html) => {
-				  chosenClass  = this.getChoices(html, classes);
-				  return -1;
-				},
-			},
-			next: {
-			  label: "Next",
-			  icon: '<i class="fas fa-angles-right"></i>',
-			  callback: async (html) => {
-				  chosenClass  = this.getChoices(html, classes);
-				  return +1;
-			  },
-			},
-			cancel: {
-				label: "Cancel",
-				callback: (html) => { return 0; }
-			},
-		  },
-		  default: "next",
-		  render: (html) => { this.handleChoiceRender(this, html); }
-		});
-		return [next, chosenClass ? chosenClass[0] : undefined];
-	}
-
-	async getSubclass(actor, cls, prevSubclass) {
-		let subclasses = [];
-
-		for (const pack of game.packs) {
-			if (pack.metadata.type === 'Item') {
-				for (let subclass of this.itemData.subclasses) {
-					if (subclass.class != cls)
-						continue;
-					let s = pack.index.find((obj) => obj.type == 'subclass' && subclass.name == obj.name);
-					if (s) {
-						let include = true;
-						if (this.itemData?.exclusions?.subclasses)
-							include = this.itemData.exclusions.subclasses.findIndex((s) => s == subclass.name) < 0;
-						if (include) subclasses.push(
-							{
-								name: s.name,
-								pack: pack.metadata.id,
-								obj: subclass,
-								uuid: s.uuid
-							}
-						);
-					}
-				}
-			}
-		}
-
-		if (subclasses.length == 0)
-			return [+1, null];
-
-		let title = "Select Subclass";
-		if (this.itemData?.customText?.subclass?.title)
-			title = this.itemData.customText.subclass.title;
-
-		let description = "Select your character's subclass.";
-		if (this.itemData?.customText?.subclass?.description)
-			description = this.itemData.customText.subclass.description;
-
-		let content = this.choiceContent(subclasses, 1, description, [prevSubclass]);
-		let chosenSubclass = undefined;
-
-		let next = await Dialog.wait({
-		  title: title,
-		  content: content,
-		  buttons: {
-			previous: {
-				label: "Previous",
-				icon: '<i class="fas fa-angles-left"></i>',
-				callback: async (html) => {
-					chosenSubclass = this.getChoices(html, subclasses);
-					return -1;
-				}
-			},
-			next: {
-			  label: "Next",
-			  icon: '<i class="fas fa-angles-right"></i>',
-			  callback: async (html) => {
-				  chosenSubclass = this.getChoices(html, subclasses);
-				  return +1;
-			  },
-			},
-			cancel: {
-				label: "Cancel",
-				callback: (html) => { return false; }
-			},
-		  },
-		  default: "next",
-		  render: (html) => { this.handleChoiceRender(this, html); }
-		});
-		return [next, chosenSubclass ? chosenSubclass[0] : undefined];
-	}
 	
 	async selectAbilities(actor, race, subrace) {
 		this.racialBonus.Strength = 0;
@@ -1749,21 +1268,6 @@ export class BuildCharacter {
 		let itemData = undefined;
 		let fileDates = [];
 
-		// console.log("build-character | loaded.");
-		/*
-
-		Hooks.on("init", function() {
-		  //console.log("build-character | initialized.");
-		});
-
-		Hooks.on("ready", function() {
-		  //console.log("build-character | ready to accept game data.");
-		});
-
-		Hooks.on("dropActorSheetData", async function(actor, sheet, data) {
-		  console.log(`build-character | dropped item on ${actor.name}.`);
-		});
-		*/
 		Hooks.on("dnd5e.advancementManagerComplete", async function(am) {
 		  console.log(`build-character | advancementManagerComplete ${am}.`);
 		  let bc = new BuildCharacter();
@@ -1888,26 +1392,6 @@ Hooks.once('init', async function () {
 
 function insertActorHeaderButtons(actorSheet, buttons) {
   let actor = actorSheet.object;
-/*
-  buttons.unshift({
-    label: "Build Character",
-    icon: "fas fa-user-plus",
-    class: "build-character-button",
-    onclick: async () => {
-		let bc = null;
-		try {
-			bc = new BuildCharacter();
-			if (!await bc.buildCharacter(actor))
-				return false;
-		} catch (msg) {
-			ui.notifications.warn(msg);
-		} finally {
-			if (bc)
-				bc.finish();
-		}
-    }
-  });
-*/
   buttons.unshift({
     label: "Set Abilities",
     icon: "fas fa-calculator",
@@ -1942,15 +1426,16 @@ function hasPermission() {
 // Put button on actor tab.
 
 Hooks.on("renderActorDirectory", (app, html, data) => {
-    console.log("build-character | Creating actor tab button");
-	if (!hasPermission())
+	if (!game.user.isGM)
 		return;
+
+    console.log("build-character | Creating actor tab button");
 
     const createButton = $("<button id='build-character-button'><i class='fas fa-user-plus'></i> Reload Build Data</button>");
     html.find(".directory-footer").append(createButton);
 
     createButton.click(async (ev) => {
-        console.log("build-character | button clicked");
+        console.log("build-character | Reloading build data");
 		let bc;
 		try {
 			if (hasPermission()) {

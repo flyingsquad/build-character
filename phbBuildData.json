@@ -374,6 +374,30 @@
 			"spells": [
 				"Blade Ward", "Friends"
 			]
+		},
+		{
+			"school": "abj",
+			"spells": [
+				"Armor of Agathys"
+			]
+		},
+		{
+			"school": "con",
+			"spells": [
+				"Arms of Hadar"
+			]
+		},
+		{
+			"school": "enc",
+			"spells": [
+				"Hex"
+			]
+		},
+		{
+			"school": "evo",
+			"spells": [
+				"Witch Bolt"
+			]
 		}
 	],
 	"feats": [

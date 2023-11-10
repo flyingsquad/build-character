@@ -658,6 +658,30 @@
 				"Acid Splash", "Chill Touch", "Dancing Lights", "Fire Bolt", "Light", "Mage Hand", 				"Mending", "Message", "Minor Illusion", "Poison Spray", "Prestidigitation", "Ray of Frost", 		"Shocking Grasp", "True Strike",
 				"Alarm", "Burning Hands", "Charm Person", "Color Spray", "Comprehend Languages", "Detect Magic",	"Disguise Self", "Expeditious Retreat", "False Life", "Feather Fall", "Find Familiar", "Floating Disk", "Fog Cloud", "Grease", "Hideous Laughter", "Identify", "Illusory Script", "Jump", "Longstrider", "Mage Armor", "Magic Missile", "Protection from Evil and Good", "Shield", "Silent Image", "Sleep", "Thunderwave", "Unseen Servant"
 			]
+		},
+		{
+			"school": "abj",
+			"spells": [
+				"Aid", "Alarm", "Antilife Shell", "Antimagic Field", "Arcane Lock", "Banishment", "Beacon of Hope", "Counterspell", "Death Ward", "Dispel Evil and Good", "Dispel Magic", "Forbiddance", "Freedom of Movement", "Globe of Invulnerability", "Glyph of Warding", "Greater Restoration", "Guards and Wards", "Holy Aura", "Imprisonment", "Lesser Restoration", "Mage Armor", "Magic Circle", "Mind Blank", "Nondetection", "Pass without Trace", "Planar Binding", "Prismatic Wall", "Private Sanctum", "Protection from Energy", "Protection from Evil and Good", "Protection from Poison", "Remove Curse", "Resistance", "Sanctuary", "Shield", "Shield of Faith", "Stoneskin", "Symbol", "Warding Bond"
+			]
+		},
+		{
+			"school": "enc",
+			"spells": [
+				"Animal Friendship", "Animal Messenger", "Antipathy/Sympathy", "Bane", "Bless", "Calm Emotions", "Charm Person", "Command", "Compulsion", "Confusion", "Dominate Beast", "Dominate Monster", "Dominate Person", "Enthrall", "Feeblemind", "Geas", "Heroism", "Hideous Laughter", "Hold Monster", "Hold Person", "Irresistible Dance", "Mass Suggestion", "Modify Memory", "Power Word Kill", "Power Word Stun", "Sleep", "Suggestion", "Vicious Mockery", "Zone of Truth"
+			]
+		},
+		{
+			"school": "evo",
+			"spells": [
+				"Acid Arrow", "Arcane Hand", "Arcane Sword", "Blade Barrier", "Branding Smite", "Burning Hands", "Chain Lightning", "Cone of Cold", "Contingency", "Continual Flame", "Cure Wounds", "Dancing Lights", "Darkness", "Daylight", "Delayed Blast Fireball", "Divine Favor", "Divine Word", "Earthquake", "Eldritch Blast", "Faerie Fire", "Fire Bolt", "Fire Shield", "Fire Storm", "Fireball", "Flame Blade", "Flame Strike", "Forcecage", "Freezing Sphere", "Guiding Bolt", "Gust of Wind", "Hallow", "Heal", "Healing Word", "Hellish Rebuke", "Ice Storm", "Light", "Lightning Bolt", "Magic Missile", "Mass Cure Wounds", "Mass Heal", "Mass Healing Word", "Meteor Swarm", "Moonbeam", "Prayer of Healing", "Prismatic Spray", "Ray of Frost", "Resilient Sphere", "Sacred Flame", "Scorching Ray", "Sending", "Shatter", "Shocking Grasp", "Spiritual Weapon", "Sunbeam", "Sunburst", "Thunderwave", "Tiny Hut", "Wall of Fire", "Wall of Force", "Wall of Ice", "Wall of Stone", "Wind Wall"
+			]
+		},
+		{
+			"school": "ill",
+			"spells": [
+				"Arcanist's Magic Aura", "Blur", "Color Spray", "Creation", "Disguise Self", "Dream", "Fear", "Greater Invisibility", "Hallucinatory Terrain", "Hypnotic Pattern", "Illusory Script", "Invisibility", "Magic Mouth", "Major Image", "Minor Illusion", "Mirage Arcane", "Mirror Image", "Mislead", "Phantasmal Killer", "Phantom Steed", "Programmed Illusion", "Project Image", "Seeming", "Silence", "Silent Image", "Simulacrum", "Weird"
+			]
 		}
 	],
 	"feats": [
