@@ -80,8 +80,8 @@
 				{"name": "slt"}
 			],
 			"tools": [
-				{"name": "disguise"},
-				{"name": "forgery"}
+				{"name": "disg"},
+				{"name": "forg"}
 			]
 		},
 		{
@@ -91,8 +91,8 @@
 				{"name": "slt"}
 			],
 			"tools": [
-				{"name": "thieves"},
-				{"choose": 1, "category": "gaming"}
+				{"name": "thief"},
+				{"choose": 1, "category": ["game"]}
 			]
 		},
 		{
@@ -102,8 +102,8 @@
 				{"name": "prf"}
 			],
 			"tools": [
-				{"name": "disguise"},
-				{"choose": 1, "category": "instrument"}
+				{"name": "disg"},
+				{"choose": 1, "category": ["music"]}
 			]
 		},
 		{
@@ -113,8 +113,8 @@
 				{"name": "sur"}
 			],
 			"tools": [
-				{"name": "artisan"},
-				{"name": "landvehicle"}
+				{"choose": 1, "category": ["art"]},
+				{"name": "land"}
 			]
 		},
 		{
@@ -124,7 +124,7 @@
 				{"name": "per"}
 			],
 			"tools": [
-				{"name": "artisan"}
+				{"choose": 1, "category": ["art"]}
 			],
 			"languages": [
 				{"choose": 1}
@@ -137,7 +137,7 @@
 				{"name": "rel"}
 			],
 			"tools": [
-				{"name": "herbalism"}
+				{"name": "herb"}
 			],
 			"languages": [
 				{"choose": 1}
@@ -150,7 +150,7 @@
 				{"name": "per"}
 			],
 			"tools": [
-				{"choose": 1, "category": "gaming"}
+				{"choose": 1, "category": ["game"]}
 			],
 			"languages": [
 				{"choose": 1}
@@ -163,7 +163,7 @@
 				{"name": "per"}
 			],
 			"tools": [
-				{"choose": 1, "category": "gaming"}
+				{"choose": 1, "category": ["game"]}
 			],
 			"languages": [
 				{"choose": 1}
@@ -176,7 +176,7 @@
 				{"name": "sur"}
 			],
 			"tools": [
-				{"choose": 1, "category": "instrument"}
+				{"choose": 1, "category": ["music"]}
 			],
 			"languages": [
 				{"choose": 1}
@@ -189,8 +189,8 @@
 				{"name": "prc"}
 			],
 			"tools": [
-				{"name": "navigator"},
-				{"name": "watervehicle"}
+				{"name": "navg"},
+				{"name": "water"}
 			]
 		},
 		{
@@ -210,8 +210,8 @@
 				{"name": "prc"}
 			],
 			"tools": [
-				{"name": "navigator"},
-				{"name": "watervehicle"}
+				{"name": "navg"},
+				{"name": "water"}
 			]
 		},
 		{
@@ -221,8 +221,30 @@
 				{"name": "itm"}
 			],
 			"tools": [
-				{"choose": 1, "category": "gaming"},
-				{"name": "landvehicle"}
+				{"choose": 1, "category": ["game"]},
+				{"name": "land"}
+			]
+		},
+		{
+			"name": "Spy",
+			"skills": [
+				{"name": "dec"},
+				{"name": "ste"}
+			],
+			"tools": [
+				{"choose": 1, "category": ["game"]},
+				{"name": "thief"}
+			]
+		},
+		{
+			"name": "Urchin",
+			"skills": [
+				{"name": "slt"},
+				{"name": "ste"}
+			],
+			"tools": [
+				{"name": "disg"},
+				{"name": "thief"}
 			]
 		}
 	],
@@ -267,8 +289,8 @@
 			"class": "Fighter",
 			"spells": [
 				{"choose": 2, "level": "cantrip", "class": "wizard"},
-				{"choose": 2, "level": 1, "class": "wizard", "schools": ["evo", "abj"], "prompt": "Pick two spells from the Evocation or Abjuration school."},
-				{"choose": 1, "level": 1, "class": "wizard", "prompt": "Pick any spell from the wizard spell list."}
+				{"choose": 2, "level": 1, "class": "wizard", "preparation": "always", "schools": ["evo", "abj"], "prompt": "Pick two spells from the Evocation or Abjuration school."},
+				{"choose": 1, "level": 1, "class": "wizard", "preparation": "always"	, "prompt": "Pick any spell from the wizard spell list."}
 			]
 		},
 		{
@@ -285,8 +307,8 @@
 					"uuid": "Compendium.dnd5e.spells.Item.Utk1OQRwYkMkFRD3"
 				},
 				{"choose": 2, "level": "cantrip", "class": "wizard"},
-				{"choose": 1, "level": 1, "class": "wizard"},
-				{"choose": 2, "level": 1, "class": "wizard", "schools": ["enc", "ill"], "prompt": "Choose two spells from the Enchantment or Illusion school."}
+				{"choose": 1, "level": 1, "class": "wizard", "preparation": "always"},
+				{"choose": 2, "level": 1, "class": "wizard", "preparation": "always", "schools": ["enc", "ill"], "prompt": "Choose two spells from the Enchantment or Illusion school."}
 			]
 		},
 
@@ -324,18 +346,33 @@
 		{
 			"level": "cantrip",
 			"spells": [
-				"Blade Ward"
+				"Blade Ward", "Friends"
 			]
 		},
 		{
 			"level": 1,
 			"spells": [
+				"Armor of Agathys", "Arms of Hadar", "Hex", "Witch Bolt"
+			]
+		},
+
+		{
+			"class": "ranger",
+			"spells": [
+				"Ensnaring Strike", "Hail of Thorns"
+			]
+		},
+		{
+			"class": "warlock",
+			"spells": [
+				"Blade Ward", "Friends",
+				"Armor of Agathys", "Arms of Hadar", "Hex", "Witch Bolt"
 			]
 		},
 		{
 			"class": "wizard",
 			"spells": [
-				"Blade Ward"
+				"Blade Ward", "Friends"
 			]
 		}
 	],

@@ -48,6 +48,7 @@ export class BuildCharacter {
 	 */
 
 	async readItemData() {
+
 		if (BuildCharacter.itemData) {
 			// Data already cached.
 			this.itemData = BuildCharacter.itemData;
@@ -64,15 +65,16 @@ export class BuildCharacter {
 		this.itemData.spells = [];
 		this.itemData.categories = [];
 		
-		let fileNames = [
-			game.settings.get('build-character', 'auxdata'),
-			game.settings.get('build-character', 'worlddata'),
-			game.settings.get('build-character', 'customdata'),
-			game.settings.get('build-character', 'maindata')
-		];
-		
 		// Don't add duplicate entries. User can override definitions by placing their
 		// custom file first in the datafiles setting.
+
+		let fileNames = [];
+
+		for (const setting of ['auxdata', 'worlddata', 'customdata', 'maindata']) {
+			const fileName = game.settings.get('build-character', setting);
+			if (fileName)
+				fileNames.push(fileName);
+		}
 
 		for (let file of fileNames) {
 			if (!file)
@@ -604,6 +606,117 @@ export class BuildCharacter {
 			if (custom.length)
 				actor.update({[`system.traits.${trait}.custom`]: custom.join(';')});
 		}
+		
+		function getItemName(id) {
+			let pack = game.packs.get(CONFIG.DND5E.sourcePacks.ITEMS);
+			if (pack) {
+				let item = pack.index.get(id);
+				if (item)
+					return item.name;
+			}
+			return null;
+		}
+		
+		function getToolName(key) {
+			let name;
+			if (name = CONFIG.DND5E.vehicleTypes[key])
+				return name;
+			if (name = getItemName(CONFIG.DND5E.toolIds[key]))
+				return name;
+			return key;
+		}
+
+		async function chooseTools(item) {
+			let choices = [];
+			let alreadyHave = [];
+
+			for (let tool in actor.system.tools)
+				alreadyHave.push(getToolName(tool));
+
+			if (item.choices) {
+				for (let c of item.choices) {
+					let name = getToolName(c);
+					if (!(c in actor.system.tools))
+						choices.push({name: name, key: c});
+				}
+			}
+
+			prompt = `<p>Select ${item.choose} tool(s).</p>`;
+			if (alreadyHave.length > 0)
+				prompt += "<p>Already selected: " + alreadyHave.join(', ') + "</p>";
+			
+			if (item.category) {
+				let list = [];
+				for (let cat of item.category) {
+					switch (cat) {
+					case 'art':
+						list = list.concat(['alchemist', 'brewer', 'calligrapher', 'carpenter', 'cartographer', 'cobbler', 'cook', 'glassblower', 'jeweler', 'leatherworker', 'mason', 'painter', 'smith', 'tinker', 'weaver', 'woodcarver']);
+						break;
+					case 'music':
+						list = list.concat(['bagpipes', 'drum', 'flute', 'horn', 'lute', 'lyre', 'panflute', 'shawm', 'viol']);
+						break;
+					case 'game':
+						list = list.concat(['chess', 'card', 'dice']);
+						break;
+					case 'vehicle':
+						list = list.concat(['land', 'water', 'air', 'space']);
+						break;
+					}
+				}
+				for (let tool of list)
+					choices.push({name: getItemName(CONFIG.DND5E.toolIds[tool]), key: tool});
+			}
+			
+			if (choices.length == 0) {
+				for (let tool of Object.keys(CONFIG.DND5E.toolIds)) {
+					choices.push({name: getItemName(CONFIG.DND5E.toolIds[tool]), key: tool});
+				}
+				prompt += "<p>You already have the tool granted by this feature from another source. Choose a different one.</p>";
+			}
+
+			let content = bc.choiceContent(choices, item.choose, prompt);
+			
+			let dlgOptions = {};
+			if (choices.length > 10)
+				dlgOptions.width = 600;
+
+			let result = await doDialog({
+				title: `Choose Tools`,
+				content: content,
+				buttons: {
+					next: {
+						label: "Next",
+						icon: '<i class="fas fa-angles-right"></i>',
+						callback: async (html) => {
+							let chosenItems = bc.getChoices(html, choices);
+							for (let it of chosenItems)
+								actor.update({[`system.tools.${it.key}.value`]: 1});
+							return true;
+						}
+					},
+					cancel: {
+						label: "Cancel",
+						callback: (html) => { return false; }
+					}
+				},
+				default: "next",
+				close: () => { return false; },
+				render: (html) => { bc.handleChoiceRender(bc, html); }
+			}, "", dlgOptions);
+		}
+
+		async function addTools(list) {
+			if (!list)
+				return;
+			let profs = [];
+			for (const item of list) {
+				if (item.name) {
+					await actor.update({[`system.tools.${item.name}.value`]: 1});
+				} else if (item.choose) {
+					await chooseTools(item);
+				}
+			}
+		}
 
 		for (const f of features) {
 			if (!f)
@@ -641,6 +754,7 @@ export class BuildCharacter {
 			await addProfs(f.obj.armor, "armorProf");
 			await addProfs(f.obj.weapons, "weaponProf");
 			await addProfs(f.obj.languages, "languages");
+			await addTools(f.obj.tools);
 		}
 	}
 
@@ -715,6 +829,10 @@ export class BuildCharacter {
 			prompt += `<p style="left-margin: .2in">Already selected: ${str}</p>\n`;
 		}
 
+		let dlgOptions = {};
+		if (skills.length > 10)
+			dlgOptions.width = 600;
+
 		let content = this.choiceContent(skills, choice.choose, prompt);
 		let pickedSkills = [];
 		let result = await doDialog({
@@ -739,7 +857,7 @@ export class BuildCharacter {
 		  default: "ok",
 		  close: () => { return false; },
 		  render: (html) => { this.handleChoiceRender(this, html); }
-		}, "", {width: 600});
+		}, "", dlgOptions);
 		return pickedSkills;
 	}
 
@@ -810,14 +928,16 @@ export class BuildCharacter {
 		for (const pack of game.packs) {
 			if (pack.metadata.type === 'Item') {
 				for (let spell of list) {
-					let s = pack.index.find((obj) => obj.type == 'spell' && spell == obj.name);
-					if (s) {
+					let sp = pack.index.find((obj) => obj.type == 'spell' && spell == obj.name);
+					if (sp) {
 						spells.push(
 							{
 								name: spell,
+								ability: s.ability,
+								preparation: s.preparation,
 								pack: pack.metadata.id,
 								obj: spell,
-								uuid: s.uuid
+								uuid: sp.uuid
 							}
 						);
 					}
@@ -843,6 +963,10 @@ export class BuildCharacter {
 		if (alreadySelected.length > 0)
 			description += "<br><br>Already selected: " + alreadySelected.join(', ');
 
+		let dlgOptions = {};
+		if (spells.length > 10)
+			dlgOptions.width = 600;
+
 		let content = this.choiceContent(spells, s.choose, description, []);
 		let chosenSpells = undefined;
 
@@ -866,7 +990,7 @@ export class BuildCharacter {
 		  default: "next",
 		  close: () => { return false; },
 		  render: (html) => { this.handleChoiceRender(this, html); }
-		}, {width: 600});
+		}, dlgOptions);
 
 		let addedSpells = [];
 
@@ -875,6 +999,10 @@ export class BuildCharacter {
 				const item = await fromUuid(s.uuid);
 				if (item) {
 					let itemData = item.toObject();
+					if (s.ability)
+						itemData.system.ability = s.ability;
+					if (s.preparation)
+						itemData.system.preparation.mode = s.preparation;
 					addedSpells = addedSpells.concat(actor.createEmbeddedDocuments("Item", [itemData]));
 				} else {
 					ui.notifications.warn(`Unable to read spell ${s.name} (${s.uuid})`);
@@ -893,7 +1021,7 @@ export class BuildCharacter {
 		
 		let choiceText = "";
 
-		let colwidth = Math.trunc(100 / Math.min(3, 1+Math.trunc(choices.length/15)));
+		let colwidth = Math.trunc(100 / Math.min(3, 1+Math.trunc(choices.length/10)));
 
 		let i = 0;
 		let count = 0;
@@ -1035,6 +1163,10 @@ export class BuildCharacter {
 		if (this.itemData?.customText?.race?.description)
 			description = this.itemData.customText.race.description;
 
+		let dlgOptions = {};
+		if (races.length > 10)
+			dlgOptions.width = 600;
+
 		let content = this.choiceContent(races, 1, description, [prevRace]);
 		let chosenRace = undefined;
 
@@ -1057,7 +1189,7 @@ export class BuildCharacter {
 		  },
 		  default: "next",
 		  render: (html) => { this.handleChoiceRender(this, html); }
-		});
+		}, dlgOptions);
 
 		return [next, chosenRace ? chosenRace[0] : undefined];
 	}
@@ -1615,6 +1747,7 @@ export class BuildCharacter {
 
 	static {
 		let itemData = undefined;
+		let fileDates = [];
 
 		// console.log("build-character | loaded.");
 		/*
@@ -1798,8 +1931,6 @@ function insertActorHeaderButtons(actorSheet, buttons) {
 
 Hooks.on("getActorSheetHeaderButtons", insertActorHeaderButtons);
 
-/*
-
 function hasPermission() {
     const userRole = game.user.role;
 
@@ -1815,8 +1946,8 @@ Hooks.on("renderActorDirectory", (app, html, data) => {
 	if (!hasPermission())
 		return;
 
-    const createButton = $("<button id='build-character-button'><i class='fas fa-user-plus'></i> Build Character</button>");
-    html.find(".directory-header").append(createButton);
+    const createButton = $("<button id='build-character-button'><i class='fas fa-user-plus'></i> Reload Build Data</button>");
+    html.find(".directory-footer").append(createButton);
 
     createButton.click(async (ev) => {
         console.log("build-character | button clicked");
@@ -1824,7 +1955,8 @@ Hooks.on("renderActorDirectory", (app, html, data) => {
 		try {
 			if (hasPermission()) {
 				bc = new BuildCharacter();
-				await bc.createCharacter();
+				BuildCharacter.itemData = null;
+				await bc.readItemData();
 			}
 		} catch (msg) {
 			ui.notifications.warn(msg);
@@ -1834,5 +1966,3 @@ Hooks.on("renderActorDirectory", (app, html, data) => {
 		}
     });
 });
-
-*/
