@@ -42,6 +42,33 @@
 			]
 		},
 		{
+			"name": "Forest Gnome",
+			"race": "Gnome",
+			"abilities": {
+				"description": "Your Dexterity score increases by 1.",
+				"Dexterity": 1
+			},
+			"spells": [
+				{
+					"name": "Minor Illusion",
+					"uuid": "Compendium.dnd5e.spells.Item.oIzA2MEHwxhtQneU",
+					"ability": "int"
+				}
+			]
+		},
+		{
+			"name": "Mountain Dwarf",
+			"race": "Dwarf",
+			"abilities": {
+				"description": "Your Strength score increases by 2.",
+				"Strength": 2
+			},
+			"armor": [
+				{"name": "lgt"},
+				{"name": "med"}
+			]
+		},
+		{
 			"name": "Wood Elf",
 			"race": "Elf",
 			"abilities": {

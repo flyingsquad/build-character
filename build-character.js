@@ -193,6 +193,7 @@ export class BuildCharacter {
 		  this.abilities[ability] = newValue;
 		}
 		html.find("#remainingPoints").text(this.totalPoints - usedPoints);
+		html.find("#curTotal").text(usedPoints);
 		return usedPoints;
 	}
 	
@@ -1059,7 +1060,7 @@ export class BuildCharacter {
 			content += `<p>${choose}</p>`;
 		let baseValueTitle;
 		if (this.abilityMethod == 'pointbuy') {
-			content += `<p>Remaining Points: <span id="remainingPoints">${this.totalPoints}</span></p>`;
+			content += `<p>Remaining Points: <span id="remainingPoints">${this.totalPoints}</span> = ${this.totalPoints} - <span id="curTotal">0</span></p>`;
 			baseValueTitle = 'Base Value';
 		} else {
 			baseValueTitle = 'Die Roll';
@@ -1109,51 +1110,43 @@ export class BuildCharacter {
 		}
 		
 		function setAbilities(pb, html) {
-			let usedPoints = pb.calcCost(html);
-
-			// Check if the point allocation is valid
-
-			if (usedPoints == pb.totalPoints || pb.abilityMethod == 'enter') {
+			if (pb.abilityMethod == 'enter') {
 				recordAbilities(pb);
-			} else {
-				// Show an error message if the point allocation is invalid
-				throw new Error(`You need to spend exactly ${pb.totalPoints} points. You spent ${usedPoints}.`);
+				return true;
 			}
+
+			let usedPoints = pb.calcCost(html);
+			recordAbilities(pb);
+			if (usedPoints != pb.totalPoints) {
+				ui.notifications.warn(`The total spent must equal ${pb.totalPoints} points. You spent ${usedPoints}.`);
+			}
+			return true;
 		}
 
-		let next = await Dialog.wait({
+		let reason = await Dialog.wait({
 		  title: "Select Ability Scores",
 		  content: content,
 		  buttons: {
-			previous: {
-			  icon: '<i class="fas fa-angles-left"></i>',
-			  label: "Previous",
-			  callback: async (html) => {
-				  let usedPoints = this.calcCost(html);
-				  recordAbilities(this);
-				  return -1;
-			  },
-			},
 			next: {
-			  icon: '<i class="fas fa-angles-right"></i>',
-			  label: "Next",
-			  callback: async (html) => {
-				  setAbilities(this, html);
-				  return +1;
-			  },
+				icon: '<i class="fas fa-check"></i>',
+				label: "OK",
+				callback: async (html) => {
+					return setAbilities(this, html);
+				},
 			},
 			cancel: {
 				label: "Cancel",
-				callback: (html) => { return 0; }
+				icon: '<i class="fas fa-x"></i>',
+				callback: (html) => { return false; }
 			},
 		  },
 		  default: "next",
 		  close: () => { return false; },
 		  render: (html) => { handleRender(this, html); }
 		}, {rejectClose: false} );
-		return next;
 	}
-	
+
+
 	async advancementComplete(am) {
 		if (!am || !am.steps)
 			return;

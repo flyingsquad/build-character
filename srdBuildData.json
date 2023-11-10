@@ -68,6 +68,23 @@
 			]
 		},
 		{
+			"name": "Gnome",
+			"abilities": {
+				"description": "Your Intelligence score increases by 2.",
+				"Intelligence": 2
+			},
+			"size": "sm",
+			"speed": 25,
+			"darkvision": 60,
+			"features": [
+				{"name": "Gnome Cunning", "uuid": "Compendium.dnd5e.races.Item.EHhr9umJ5kxJFCQH"}
+			],
+			"languages": [
+				{"name": "common"},
+				{"name": "gnomish"}
+			]
+		},
+		{
 			"name": "Half-Elf",
 			"abilities": {
 				"description": "Your Charisma score increases by 2, and two other ability scores of your choice increase by 1.",
