@@ -365,7 +365,7 @@ export class BuildCharacter {
 
 		let bc = this;
 
-		async function chooseProfs(count, trait, profs, custom) {
+		async function chooseProfs(source, item, trait, profs, custom) {
 			let choices = [];
 			let alreadyHave = [];
 			if (trait == 'languages') {
@@ -384,14 +384,14 @@ export class BuildCharacter {
 				}
 			}
 
-			let prompt = `<p>Choose ${count} ${trait}</p>`;
+			let prompt = `<p>Choose ${item.choose} ${trait} for ${source}.</p>`;
 			
 			if (profs.length || custom.length) {
 				let str = alreadyHave.join(', ');
 				prompt += `<p>You already have the following ${trait}: ${str}</p>`;
 			}
 
-			let content = bc.choiceContent(choices, count, prompt);
+			let content = bc.choiceContent(choices, item.choose, prompt);
 			content += `<p><label for="custom" style="flex-grow: 1">Custom ${trait} (separate with semicolons): </label><br>
 				<input type="text" name="custom" id="custom" style="flex-grow: 1"></p>`;
 
@@ -428,7 +428,7 @@ export class BuildCharacter {
 			}, "", {width: 600});
 		}
 
-		async function addProfs(list, trait) {
+		async function addProfs(source, list, trait) {
 			if (!list)
 				return;
 			let profs = [];
@@ -441,7 +441,7 @@ export class BuildCharacter {
 				if (item.name)
 					profs.push(item.name);
 				else if (item.choose)
-					await chooseProfs(item.choose, trait, profs, custom);
+					await chooseProfs(source, item, trait, profs, custom);
 				else if (item.custom)
 					custom.push(item.custom);
 			}
@@ -600,9 +600,9 @@ export class BuildCharacter {
 					actor.update({"system.attributes.spellcasting": f.obj.spellcasting});
 			}
 			
-			await addProfs(f.obj.armor, "armorProf");
-			await addProfs(f.obj.weapons, "weaponProf");
-			await addProfs(f.obj.languages, "languages");
+			await addProfs(f.obj.name, f.obj.armor, "armorProf");
+			await addProfs(f.obj.name, f.obj.weapons, "weaponProf");
+			await addProfs(f.obj.name, f.obj.languages, "languages");
 			await addTools(f.obj.tools);
 		}
 	}
@@ -1260,14 +1260,23 @@ export class BuildCharacter {
 	async selectImage(actor) {
 		let portraitFolder = game.settings.get('build-character', 'portraits');
 
-		function setPortrait(actor, file) {
+		async function setPortrait(actor, file) {
 			actor.update({"img": file});
+			// Also set the token name to the character name in case the
+			// user changed the character name after creation.
+			await Dialog.prompt({
+				title: "Select Token Image",
+				content: `<p>Use the Image Browser to select the image used for the character token.</p>
+					<p>In the next dialog, click the image for the token, then click Select File at the bottom of the image browser.</p>`}
+			);
+
 			let tokenPicker = new FilePicker({
 				type: "image",
 				displayMode: "tiles",
 				current: portraitFolder,
 				callback: (file) => {
 					actor.update({
+						"prototypeToken.name": actor.name,
 						"prototypeToken.texture.src": file,
 						"prototypeToken.texture.scaleX": 0.8,
 						"prototypeToken.texture.scaleY": 0.8
@@ -1276,12 +1285,18 @@ export class BuildCharacter {
 			});
 			tokenPicker.render();
 		}
+
 		let picker = new FilePicker({
 			type: "image",
 			displayMode: "tiles", 
 			current: portraitFolder,
 			callback: (file) => { setPortrait(actor, file); }
 		});
+		await Dialog.prompt({
+			title: "Select Character Portrait",
+			content: `<p>Use the Image Browser to select the character portrait on the character sheet.</p>
+			<p>In the next dialog, click the image for the portrait, then click Select File at the bottom of the image browser.</p>`}
+		);
 		picker.render();
 	}
 	
@@ -1450,8 +1465,6 @@ Hooks.on("getActorSheetHeaderButtons", insertActorHeaderButtons);
 Hooks.on("renderActorDirectory", (app, html, data) => {
 	if (!game.user.isGM)
 		return;
-
-    console.log("build-character | Creating actor tab button");
 
     const createButton = $("<button id='build-character-button'><i class='fas fa-user-plus'></i> Reload Build Data</button>");
     html.find(".directory-footer").append(createButton);

@@ -289,6 +289,37 @@
 		}
 	],
 	"classes": [
+		{
+			"name": "Artificer",
+			"spellcasting": "int",
+			"skills": [
+				{"choose": 2, "options": ["arc", "his", "inv", "med", "nat", "prc", "slt"]}
+			],
+			"saves": [
+				"Constitution", "Intelligence"
+			],
+			"armor": [
+				{"name": "lgt"},
+				{"name": "med"},
+				{"name": "shl"}
+			],
+			"weapons": [
+				{"name": "sim"}
+			],
+			"tools": [
+				{"name": "thief"},
+				{"name": "tinker"},
+				{"choose": 1, "category": ["art"]}
+			],
+			"spells": [
+				{
+					"choose": 2,
+					"level": "cantrip",
+					"class": "artificer", 
+					"ability": "int"
+				}
+			]
+		}
 	],
 	"subclasses": [
 		{
@@ -388,7 +419,7 @@
 		{
 			"level": "cantrip",
 			"spells": [
-				"Blade Ward", "Friends"
+				"Blade Ward", "Booming Blade", "Create Bonfire", "Friends", "Frostbite", "Green-Flame Blade", "Lightning Lure", "Sword Burst", "Thorn Whip", "Thunderclap"
 			]
 		},
 		{
@@ -399,24 +430,49 @@
 		},
 
 		{
+			"class": "artificer",
+			"spells": [
+				"Acid Splash", "Booming Blade", "Create Bonfire", "Dancing Lights", "Fire Bolt", "Frostbite", "Green-Flame Blade", "Guidance", "Light", "Lightning Lure", "Mage Hand", "Magic Stone", "Mending", "Message", "Poison Spray", "Prestidigitation", "Ray of Frost", "Resistance", "Shocking Grasp", "Spare the Dying", "Sword Burst", "Thorn Whip", "Thunderclap"
+			]
+		},
+		{
+			"class": "bard",
+			"spells": [
+				"Thunderclap"
+			]
+		},
+		{
+			"class": "druid",
+			"spells": [
+				"Create Bonfire", "Frostbite", "Magic Stone", "Thunderclap"
+			]
+		},
+		{
 			"class": "ranger",
 			"spells": [
 				"Ensnaring Strike", "Hail of Thorns"
 			]
 		},
 		{
+			"class": "sorcerer",
+			"spells": [
+				"Create Bonfire", "Frostbite", "Sword Burst", "Thunderclap"
+			]
+		},
+		{
 			"class": "warlock",
 			"spells": [
-				"Blade Ward", "Friends",
-				"Armor of Agathys", "Arms of Hadar", "Hex", "Witch Bolt"
+				"Blade Ward", "Create Bonfire", "Friends", "Frostbite", "Magic Stone", "Sword Burst", "Thunderclap",
+				"Armor of Agathys", "Arms of Hadar", "Create Bonfire", "Hex", "Witch Bolt"
 			]
 		},
 		{
 			"class": "wizard",
 			"spells": [
-				"Blade Ward", "Friends"
+				"Blade Ward", "Create Bonfire", "Friends", "Frostbite", "Sword Burst", "Thunderclap"
 			]
 		},
+
 		{
 			"school": "abj",
 			"spells": [
@@ -438,7 +494,7 @@
 		{
 			"school": "evo",
 			"spells": [
-				"Witch Bolt"
+				"Frostbite", "Lightning Lure", "Witch Bolt"
 			]
 		}
 	],

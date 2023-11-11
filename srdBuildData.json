@@ -258,6 +258,7 @@
 		{
 			"name": "Bard",
 			"spellcasting": "cha",
+			"spellprepmode": "always",
 			"skills": [
 				{"choose": 3}
 			],
@@ -422,6 +423,7 @@
 		{
 			"name": "Ranger",
 			"spellcasting": "wis",
+			"spellprepmode": "always",
 			"skills": [
 				{"choose": 3, "options": ["ani", "ath", "ins", "inv", "nat", "prc", "ste", "sur"]}
 			],
@@ -472,6 +474,7 @@
 		{
 			"name": "Sorcerer",
 			"spellcasting": "cha",
+			"spellprepmode": "always",
 			"skills": [
 				{"choose": 2, "options": ["arc", "dec", "ins", "itm", "per", "rel"]}
 			],
@@ -506,6 +509,7 @@
 		{
 			"name": "Warlock",
 			"spellcasting": "cha",
+			"spellprepmode": "pact",
 			"skills": [
 				{"choose": 2, "options": ["arc", "dec", "his", "inv", "itm", "nat", "rel"]}
 			],
