@@ -7,7 +7,6 @@
       "name": "flying-squad"
     }
   ],
-  "version": "1.0.5",
   "compatibility": {
     "minimum": "11",
     "verified": "11"
@@ -15,7 +14,8 @@
   "esmodules": [
     "build-character.js"
   ],
+  "version": "1.0.6",
+  "download": "https://github.com/flyingsquad/build-character/archive/refs/tags/v1.0.6.zip",
   "url": "https://github.com/flyingsquad/build-character",
-  "manifest": "https://raw.githubusercontent.com/flyingsquad/build-character/main/module.json",
-  "download": "https://github.com/flyingsquad/build-character/archive/refs/tags/v1.0.5.zip"
+  "manifest": "https://raw.githubusercontent.com/flyingsquad/build-character/main/module.json"
 }

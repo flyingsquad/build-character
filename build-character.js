@@ -1262,13 +1262,24 @@ export class BuildCharacter {
 
 		async function setPortrait(actor, file) {
 			actor.update({"img": file});
-			// Also set the token name to the character name in case the
-			// user changed the character name after creation.
-			await Dialog.prompt({
-				title: "Select Token Image",
-				content: `<p>Use the Image Browser to select the image used for the character token.</p>
-					<p>In the next dialog, click the image for the token, then click Select File at the bottom of the image browser.</p>`}
-			);
+
+			const content = `<p>Use the Image Browser in the next dialog to select the image used for the character token.</p>
+					<p>In the Image Browser click the image for the token, then click Select File at the bottom of the image browser.</p>`;
+			let result = await Dialog.wait({
+			  title: "Select Token Image",
+			  content: content,
+			  buttons: {
+				next: {
+					icon: '<i class="fas fa-check"></i>',
+					label: "OK",
+					callback: async (html) => { return true; }
+				}
+			  },
+			  default: "next",
+			  close: () => { return false; }
+			}, {rejectClose: false} );
+			if (!result)
+				return;
 
 			let tokenPicker = new FilePicker({
 				type: "image",
@@ -1292,11 +1303,26 @@ export class BuildCharacter {
 			current: portraitFolder,
 			callback: (file) => { setPortrait(actor, file); }
 		});
-		await Dialog.prompt({
-			title: "Select Character Portrait",
-			content: `<p>Use the Image Browser to select the character portrait on the character sheet.</p>
-			<p>In the next dialog, click the image for the portrait, then click Select File at the bottom of the image browser.</p>`}
-		);
+		
+		const content = `<p>Use the Image Browser in the next dialog to select the portrait on the character sheet.</p>
+			<p>In the Image Browser click the image for the portrait, then click Select File at the bottom of the image browser.</p>`;
+	
+		let result = await Dialog.wait({
+		  title: "Select Character Portrait",
+		  content: content,
+		  buttons: {
+			next: {
+				icon: '<i class="fas fa-check"></i>',
+				label: "OK",
+				callback: async (html) => { return true; }
+			}
+		  },
+		  default: "next",
+		  close: () => { return false; }
+		}, {rejectClose: false} );
+		if (!result)
+			return;
+
 		picker.render();
 	}
 	
