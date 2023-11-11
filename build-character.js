@@ -594,6 +594,11 @@ export class BuildCharacter {
 					armor.push(a.name);
 				actor.update({"system.traits.armorProf.value": armor});
 			}
+			if (f.obj.spellcasting) {
+				// Only set the spellcasting ability for the first class.
+				if (actor.items.filter(it => it.type == 'class' && it.system?.spellcasting?.ability).length <= 1)
+					actor.update({"system.attributes.spellcasting": f.obj.spellcasting});
+			}
 			
 			await addProfs(f.obj.armor, "armorProf");
 			await addProfs(f.obj.weapons, "weaponProf");
@@ -1060,7 +1065,7 @@ export class BuildCharacter {
 			content += `<p>${choose}</p>`;
 		let baseValueTitle;
 		if (this.abilityMethod == 'pointbuy') {
-			content += `<p>Remaining Points: <span id="remainingPoints">${this.totalPoints}</span> = ${this.totalPoints} - <span id="curTotal">0</span></p>`;
+			content += `<p>Remaining Points: <strong><span id="remainingPoints">${this.totalPoints}</span></strong> = ${this.totalPoints} - <span id="curTotal">0</span></p>`;
 			baseValueTitle = 'Base Value';
 		} else {
 			baseValueTitle = 'Die Roll';
@@ -1251,7 +1256,34 @@ export class BuildCharacter {
 		await this.chooseSpells(item.parent, [feature]);
 		await this.addFeatures(item.parent, feature);
 	}
+	
+	async selectImage(actor) {
+		let portraitFolder = game.settings.get('build-character', 'portraits');
 
+		function setPortrait(actor, file) {
+			actor.update({"img": file});
+			let tokenPicker = new FilePicker({
+				type: "image",
+				displayMode: "tiles",
+				current: portraitFolder,
+				callback: (file) => {
+					actor.update({
+						"prototypeToken.texture.src": file,
+						"prototypeToken.texture.scaleX": 0.8,
+						"prototypeToken.texture.scaleY": 0.8
+					});
+				}
+			});
+			tokenPicker.render();
+		}
+		let picker = new FilePicker({
+			type: "image",
+			displayMode: "tiles", 
+			current: portraitFolder,
+			callback: (file) => { setPortrait(actor, file); }
+		});
+		picker.render();
+	}
 	
 	finish() {
 		// console.log(`build-character | Finished setting abilities for ${this.actor.name}`);
@@ -1269,10 +1301,13 @@ export class BuildCharacter {
 		});
 
 		Hooks.on("createItem", async function(item, sheet, data) {
-		  console.log(`build-character | createItem ${item.name} on ${item.parent.name}.`);
-		  let bc = new BuildCharacter();
-		  if (bc)
-			  bc.itemAdded(item);
+			// Exit immediately if item was created by another user.
+			if (data != game.user.id)
+				return;
+			console.log(`build-character | createItem ${item.name} on ${item.parent.name}.`);
+			let bc = new BuildCharacter();
+			if (bc)
+				bc.itemAdded(item);
 		});
 
 	}
@@ -1354,69 +1389,63 @@ Hooks.once('init', async function () {
 	  default: ""
 	});
 
-	let defPortrait = 'icons/svg/mystery-man.svg';
-	game.settings.register('build-character', 'defaultportrait', {
-	  name: 'Default portrait',
-	  hint: 'Name of the image file used as the portrait for new characters.',
+	game.settings.register('build-character', 'portraits', {
+	  name: 'Portrait Folder',
+	  hint: 'Path to folder where portraits and tokens for player characters are stored.',
 	  scope: 'client',     // "world" = sync to db, "client" = local storage
 	  config: true,       // false if you dont want it to show in module config
 	  type: String,       // Number, Boolean, String, Object
-	  default: defPortrait,
-	  filePicker: true,
-	  onChange: value => { // value is the new value of the setting
-		console.log('build-character | portrait: ' + value)
-	  },
-	});
-	let defToken = 'icons/svg/mystery-man.svg';
-	game.settings.register('build-character', 'defaulttoken', {
-	  name: 'Default token',
-	  hint: 'Name of the image file used as the token for new characters.',
-	  scope: 'client',     // "world" = sync to db, "client" = local storage
-	  config: true,       // false if you dont want it to show in module config
-	  type: String,       // Number, Boolean, String, Object
-	  default: defToken,
-	  filePicker: true,
-	  onChange: value => { // value is the new value of the setting
-		console.log('build-character | token: ' + value)
-	  },
+	  default: "",
+	  filePicker: "folder"
 	});
 	
 });
 
 function insertActorHeaderButtons(actorSheet, buttons) {
-  let actor = actorSheet.object;
-  buttons.unshift({
-    label: "Set Abilities",
-    icon: "fas fa-calculator",
-    class: "set-ability-button",
-    onclick: async () => {
-		let bc = null;
-		try {
-			bc = new BuildCharacter();
-			await bc.readItemData();
-			if (!await bc.selectAbilities(actor, null, null))
-				return false;
-		} catch (msg) {
-			ui.notifications.warn(msg);
-		} finally {
-			if (bc)
-				bc.finish();
+	let actor = actorSheet.object;
+
+	buttons.unshift({
+		label: "Set Abilities",
+		icon: "fas fa-calculator",
+		class: "set-ability-button",
+		onclick: async () => {
+			let bc = null;
+			try {
+				bc = new BuildCharacter();
+				await bc.readItemData();
+				if (!await bc.selectAbilities(actor, null, null))
+					return false;
+			} catch (msg) {
+				ui.notifications.warn(msg);
+			} finally {
+				if (bc)
+					bc.finish();
+			}
 		}
-    }
-  });
+	});
+	buttons.unshift({
+		label: "Select Image",
+		icon: "fas fa-user-plus",
+		class: "select-image-button",
+		onclick: async () => {
+			let bc = null;
+			try {
+				bc = new BuildCharacter();
+				if (!await bc.selectImage(actor))
+					return false;
+			} catch (msg) {
+				ui.notifications.warn(msg);
+			} finally {
+				if (bc)
+					bc.finish();
+			}
+		}
+	});
 }
 
 Hooks.on("getActorSheetHeaderButtons", insertActorHeaderButtons);
 
-function hasPermission() {
-    const userRole = game.user.role;
-
-    if (!game.permissions.ACTOR_CREATE.includes(userRole))
-        return false;
-	return true;
-}
-
-// Put button on actor tab.
+// Put button on actor tab to reload data.
 
 Hooks.on("renderActorDirectory", (app, html, data) => {
 	if (!game.user.isGM)
@@ -1431,11 +1460,9 @@ Hooks.on("renderActorDirectory", (app, html, data) => {
         console.log("build-character | Reloading build data");
 		let bc;
 		try {
-			if (hasPermission()) {
-				bc = new BuildCharacter();
-				BuildCharacter.itemData = null;
-				await bc.readItemData();
-			}
+			bc = new BuildCharacter();
+			BuildCharacter.itemData = null;
+			await bc.readItemData();
 		} catch (msg) {
 			ui.notifications.warn(msg);
 		} finally {

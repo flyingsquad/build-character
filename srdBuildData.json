@@ -257,6 +257,7 @@
 		},
 		{
 			"name": "Bard",
+			"spellcasting": "cha",
 			"skills": [
 				{"choose": 3}
 			],
@@ -294,6 +295,7 @@
 		},
 		{
 			"name": "Cleric",
+			"spellcasting": "wis",
 			"skills": [
 				{"choose": 2, "options": ["his", "ins", "med", "per", "rel"]}
 			],
@@ -319,6 +321,7 @@
 		},
 		{
 			"name": "Druid",
+			"spellcasting": "wis",
 			"skills": [
 				{"choose": 2, "options": ["arc", "ani", "ins", "med", "nat", "per", "rel", "sur"]}
 			],
@@ -398,6 +401,7 @@
 		},
 		{
 			"name": "Paladin",
+			"spellcasting": "wis",
 			"skills": [
 				{"choose": 2, "options": ["ath", "ins", "itm", "med", "per", "rel"]}
 			],
@@ -417,6 +421,7 @@
 		},
 		{
 			"name": "Ranger",
+			"spellcasting": "wis",
 			"skills": [
 				{"choose": 3, "options": ["ani", "ath", "ins", "inv", "nat", "prc", "ste", "sur"]}
 			],
@@ -466,6 +471,7 @@
 		},
 		{
 			"name": "Sorcerer",
+			"spellcasting": "cha",
 			"skills": [
 				{"choose": 2, "options": ["arc", "dec", "ins", "itm", "per", "rel"]}
 			],
@@ -499,6 +505,7 @@
 		},
 		{
 			"name": "Warlock",
+			"spellcasting": "cha",
 			"skills": [
 				{"choose": 2, "options": ["arc", "dec", "his", "inv", "itm", "nat", "rel"]}
 			],
@@ -529,6 +536,7 @@
 		},
 		{
 			"name": "Wizard",
+			"spellcasting": "int",
 			"skills": [
 				{"choose": 2, "options": ["arc", "dec", "his", "inv", "itm", "nat", "rel"]}
 			],
