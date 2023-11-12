@@ -14,8 +14,8 @@
   "esmodules": [
     "build-character.js"
   ],
-  "version": "1.0.8",
-  "download": "https://github.com/flyingsquad/build-character/archive/refs/tags/v1.0.8.zip",
+  "version": "1.1.0",
+  "download": "https://github.com/flyingsquad/build-character/archive/refs/tags/v1.1.0.zip",
   "url": "https://github.com/flyingsquad/build-character",
   "manifest": "https://raw.githubusercontent.com/flyingsquad/build-character/main/module.json"
 }
