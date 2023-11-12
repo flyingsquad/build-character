@@ -426,6 +426,8 @@ export class BuildCharacter {
 			  close: () => { return false; },
 			  render: (html) => { bc.handleChoiceRender(bc, html); }
 			}, "", {width: 600});
+			if (!result)
+				throw 'cancel';
 		}
 
 		async function addProfs(source, list, trait) {
@@ -547,6 +549,8 @@ export class BuildCharacter {
 				close: () => { return false; },
 				render: (html) => { bc.handleChoiceRender(bc, html); }
 			}, "", dlgOptions);
+			if (!result)
+				throw 'cancel';
 		}
 
 		async function addTools(list) {
@@ -600,10 +604,15 @@ export class BuildCharacter {
 					actor.update({"system.attributes.spellcasting": f.obj.spellcasting});
 			}
 			
-			await addProfs(f.obj.name, f.obj.armor, "armorProf");
-			await addProfs(f.obj.name, f.obj.weapons, "weaponProf");
-			await addProfs(f.obj.name, f.obj.languages, "languages");
-			await addTools(f.obj.tools);
+			try {
+				await addProfs(f.obj.name, f.obj.armor, "armorProf");
+				await addProfs(f.obj.name, f.obj.weapons, "weaponProf");
+				await addProfs(f.obj.name, f.obj.languages, "languages");
+				await addTools(f.obj.tools);
+			} catch (msg) {
+				if (msg !== 'cancel')
+					throw msg;
+			}
 		}
 	}
 
@@ -1192,6 +1201,7 @@ export class BuildCharacter {
 			pack: null,
 			uuid: null
 		};
+		this.setSpellPrepMode(am.actor);
 		
 		await this.setOtherData(am.actor, [feature]);
 		let next = await this.chooseSkills(am.actor, [feature]);
@@ -1200,11 +1210,47 @@ export class BuildCharacter {
 		await this.chooseSpells(am.actor, [feature]);
 	}
 	
+	async setSpellPrepMode(actor) {
+		let spellclasses = actor.items.filter(it => it.type == 'class' || it.type == 'subclass');
+		let modes = [];
+		for (let c of spellclasses) {
+			let obj = this.itemData.classes.find(r => r.name == c.name);
+			if (!obj)
+				obj = this.itemData.subclasses.find(r => r.name == c.name);
+			if (obj.spellprepmode)
+				if (!modes.includes(obj.spellprepmode))
+					modes.push(obj.spellprepmode);
+		}
+		if (modes.length == 0)
+			return;
+
+		if (modes.length != 1)
+			modes = ['prepared'];
+		if (actor.getFlag('build-character', 'spellprepmode') != modes[0])
+			await actor.setFlag('build-character', 'spellprepmode', modes[0]);
+	}
+	
 	async itemAdded(item) {
 		if (item.flags['build-character'])
 			return;
 		if (item.type == 'class')
 			return;
+		if (item.type == 'spell') {
+			// Set spell preparation mode for level 1+ spells to mode indicated
+			// on character if they come in marked as unprepared (spells added for a class will
+			// have the preparation mode marked, but spells added directly by user
+			// will always be prepared, the default value).
+			if (item.system.level <= 0 || item.system.preparation.mode != 'prepared')
+				return;
+			await this.readItemData();
+			const spellprepmode = item.parent.getFlag('build-character', 'spellprepmode');
+			if (item.parent.getFlag('build-character', 'spellprepmode') == undefined)
+				this.setSpellPrepMode(item.parent);
+			if (spellprepmode && item.system.preparation.mode != spellprepmode) {
+                item.parent.updateEmbeddedDocuments("Item", [{ "_id": item._id, "system.preparation.mode": spellprepmode }]);
+			}
+			return;
+		}
 
 		item.flags['build-character'] = {added: true};
 
@@ -1335,7 +1381,6 @@ export class BuildCharacter {
 		let fileDates = [];
 
 		Hooks.on("dnd5e.advancementManagerComplete", async function(am) {
-		  console.log(`build-character | advancementManagerComplete ${am}.`);
 		  let bc = new BuildCharacter();
 		  if (bc)
 			  bc.advancementComplete(am);
@@ -1345,7 +1390,6 @@ export class BuildCharacter {
 			// Exit immediately if item was created by another user.
 			if (data != game.user.id)
 				return;
-			console.log(`build-character | createItem ${item.name} on ${item.parent.name}.`);
 			let bc = new BuildCharacter();
 			if (bc)
 				bc.itemAdded(item);
@@ -1388,10 +1432,7 @@ Hooks.once('init', async function () {
 	  scope: 'client',     // "world" = sync to db, "client" = local storage
 	  config: true,       // false if you dont want it to show in module config
 	  type: Number,       // Number, Boolean, String, Object
-	  default: 27,
-	  onChange: value => { // value is the new value of the setting
-		//console.log('build-character | budget: ' + value)
-	  }
+	  default: 27
 	});
 
 	game.settings.register('build-character', 'maindata', {
@@ -1496,7 +1537,6 @@ Hooks.on("renderActorDirectory", (app, html, data) => {
     html.find(".directory-footer").append(createButton);
 
     createButton.click(async (ev) => {
-        console.log("build-character | Reloading build data");
 		let bc;
 		try {
 			bc = new BuildCharacter();

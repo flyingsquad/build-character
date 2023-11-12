@@ -292,6 +292,7 @@
 		{
 			"name": "Artificer",
 			"spellcasting": "int",
+			"spellprepmode": "prepared",
 			"skills": [
 				{"choose": 2, "options": ["arc", "his", "inv", "med", "nat", "prc", "slt"]}
 			],
@@ -358,6 +359,7 @@
 		{
 			"name": "Eldritch Knight",
 			"spellcasting": "int",
+			"spellprepmode": "always",
 			"class": "Fighter",
 			"spells": [
 				{"choose": 2, "level": "cantrip", "class": "wizard"},
@@ -373,6 +375,7 @@
 		{
 			"name": "Arcane Trickster",
 			"spellcasting": "int",
+			"spellprepmode": "always",
 			"class": "Rogue",
 			"spells": [
 				{

@@ -297,6 +297,7 @@
 		{
 			"name": "Cleric",
 			"spellcasting": "wis",
+			"spellprepmode": "prepared",
 			"skills": [
 				{"choose": 2, "options": ["his", "ins", "med", "per", "rel"]}
 			],
@@ -323,6 +324,7 @@
 		{
 			"name": "Druid",
 			"spellcasting": "wis",
+			"spellprepmode": "prepared",
 			"skills": [
 				{"choose": 2, "options": ["arc", "ani", "ins", "med", "nat", "per", "rel", "sur"]}
 			],
@@ -403,6 +405,7 @@
 		{
 			"name": "Paladin",
 			"spellcasting": "wis",
+			"spellprepmode": "prepared",
 			"skills": [
 				{"choose": 2, "options": ["ath", "ins", "itm", "med", "per", "rel"]}
 			],
@@ -541,6 +544,7 @@
 		{
 			"name": "Wizard",
 			"spellcasting": "int",
+			"spellprepmode": "prepared",
 			"skills": [
 				{"choose": 2, "options": ["arc", "dec", "his", "inv", "itm", "nat", "rel"]}
 			],
