@@ -222,6 +222,18 @@
 			"features": [
 				{"name": "Naturally Stealthy", "uuid": "Compendium.dnd5e.races.Item.ZgYBjYYfiUstQD6f"}
 			]
+		},
+		{
+			"name": "Rock Gnome",
+			"race": "Gnome",
+			"abilities": {
+				"description": "Your Constitution score increases by 1.",
+				"Constitution": 1
+			},
+			"features": [
+				{"name": "Artificer's Lore", "uuid": "Compendium.dnd5e.races.Item.OQA1sHxKnSJq01dL"},
+				{"name": "Tinker", "uuid": "Compendium.dnd5e.races.Item.koRPOLtj8XAFMwnW"}
+			]
 		}
 	],
 	"backgrounds": [
