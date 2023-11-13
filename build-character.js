@@ -254,27 +254,9 @@ export class BuildCharacter {
 	totalPoints = Number(game.settings.get('build-character', 'budget'));
 	abilityMethod = game.settings.get('build-character', 'abilityMethod');
 
-	async addItems(actor, itemList) {
-		for (let it of itemList) {
-			if (it == null)
-				continue;
-			const item = await fromUuid(it.uuid);
-			if (item) {
-				// FIX: should use call that executes advancement steps.
-				let itemData = item.toObject();
-				itemData.flags['build-character'] = {added: true};
-				let itemId = await actor.createEmbeddedDocuments("Item", [itemData]);
-				if (itemId)
-					it.id = itemId[0];
-				this.addFeatures(actor, it);
-			} else {
-				const msg = `Could not get item ${it.name} (${it.uuid})`
-				throw new Error(msg);
-			}
-		}
-	}
-
-	async addFeatures(actor, it) {
+	async addFeatures(srcItem, actor, it) {
+		
+		let addedFeatureIDs = [];
 		
 		async function chooseFeatures(bc, f) {
 			let items = [];
@@ -331,21 +313,26 @@ export class BuildCharacter {
 			if (!feature)
 				throw new Error(`Feature ${f.name}[${f.uuid}] for ${it.name} not found in compendium`);
 			let itemData = feature.toObject();
-			itemData.flags['build-character'] = {added: true};
 			let ids = await actor.createEmbeddedDocuments("Item", [itemData]);
-			if (ids)
+			if (ids) {
+				addedFeatureIDs.push(ids[0]._id);
 				f.id = ids[0];
+			}
 		}
 
 
 		if (it.obj.features !== undefined) {
 			for (let f of it.obj.features) {
 				if (f.uuid) {
-					createItem(f);
+					await createItem(f);
 				} else if (f.choose) {
 					await chooseFeatures(this, f);
 				}
 			}
+			if (addedFeatureIDs.length > 0)
+				await actor.updateEmbeddedDocuments("Item",
+					[{ "_id": srcItem._id, "flags.build-character.features": addedFeatureIDs }]
+				);
 		}
 	}
 
@@ -363,11 +350,11 @@ export class BuildCharacter {
 	/**	Set data like saves, darkvision, etc.
 	 */
 
-	async setOtherData(actor, features) {
+	async setOtherData(srcItem, actor, features) {
 
 		let bc = this;
 
-		async function chooseProfs(source, item, trait, profs, custom) {
+		async function chooseProfs(source, item, trait, profs, custom, added, addedCustom) {
 			let choices = [];
 			let alreadyHave = [];
 			if (trait == 'languages') {
@@ -407,15 +394,20 @@ export class BuildCharacter {
 				  callback: async (html) => {
 					  let chosenItems = bc.getChoices(html, choices);
 					  for (let it of chosenItems) {
-						  if (it.custom)
+						  if (it.custom) {
 							  custom.push(it.key);
-						  else
+							  addedCustom.push(it.key);
+						  } else {
 							  profs.push(it.key);
+							  added.push(it.key);
+						  }
 					  }
 					  let cust = html.find("#custom").val();
 					  if (cust)
-						  for (let lang of cust.split(/; */))
+						  for (let lang of cust.split(/; */)) {
 							  custom.push(lang);
+							  addedCustom.push(lang);
+						  }
 					  return true;
 				  }
 				},
@@ -436,22 +428,35 @@ export class BuildCharacter {
 			if (!list)
 				return;
 			let profs = [];
+			let added = [];
+			let addedCustom = [];
+
 			for (const p of actor.system.traits[trait].value)
 				profs.push(p);
 			let custom = [];
 			if (actor.system.traits[trait].custom)
 				custom = actor.system.traits[trait].custom.split(/; */);
 			for (const item of list) {
-				if (item.name)
+				if (item.name) {
 					profs.push(item.name);
-				else if (item.choose)
-					await chooseProfs(source, item, trait, profs, custom);
+					added.push(item.name);
+				} else if (item.choose)
+					await chooseProfs(source, item, trait, profs, custom, added, addedCustom);
 				else if (item.custom)
 					custom.push(item.custom);
 			}
-			actor.update({[`system.traits.${trait}.value`]: profs});
-			if (custom.length)
+			if (added.length > 0) {
+				actor.update({[`system.traits.${trait}.value`]: profs});
+				await actor.updateEmbeddedDocuments("Item",
+					[{ "_id": srcItem._id, [`flags.build-character.traits.${trait}`]: added }]
+				);
+			}
+			if (custom.length) {
 				actor.update({[`system.traits.${trait}.custom`]: custom.join(';')});
+				await actor.updateEmbeddedDocuments("Item",
+					[{ "_id": srcItem._id, [`flags.build-character.custom.${trait}`]: addedCustom }]
+				);
+			}
 		}
 		
 		function getItemName(id) {
@@ -474,7 +479,7 @@ export class BuildCharacter {
 			return key;
 		}
 
-		async function chooseTools(item) {
+		async function chooseTools(item, addedTools) {
 			let choices = [];
 			let alreadyHave = [];
 
@@ -537,8 +542,10 @@ export class BuildCharacter {
 						icon: '<i class="fas fa-angles-right"></i>',
 						callback: async (html) => {
 							let chosenItems = bc.getChoices(html, choices);
-							for (let it of chosenItems)
+							for (let it of chosenItems) {
 								actor.update({[`system.tools.${it.key}.value`]: 1});
+								addedTools.push(it.key);
+							}
 							return true;
 						}
 					},
@@ -558,14 +565,18 @@ export class BuildCharacter {
 		async function addTools(list) {
 			if (!list)
 				return;
-			let profs = [];
+			let addedTools = [];
 			for (const item of list) {
 				if (item.name) {
 					await actor.update({[`system.tools.${item.name}.value`]: 1});
+					addedTools.push(item.name);
 				} else if (item.choose) {
-					await chooseTools(item);
+					await chooseTools(item, addedTools);
 				}
 			}
+			await actor.updateEmbeddedDocuments("Item",
+				[{ "_id": srcItem._id, "flags.build-character.tools": addedTools }]
+			);
 		}
 
 		for (const f of features) {
@@ -574,32 +585,50 @@ export class BuildCharacter {
 			if (f.obj.saves !== undefined) {
 				if (actor.system.details.level <= 1) {
 					// Only the first class gets saving throw proficiencies.
-					for (const save of f.obj.saves)
+					let saves = [];
+					for (const save of f.obj.saves) {
+						saves.push(this.abilityNames[save]);
 						actor.update({[`data.abilities.${this.abilityNames[save]}.proficient`]: 1});
+					}
+					actor.updateEmbeddedDocuments("Item",
+						[{ "_id": srcItem._id, "flags.build-character.saves": saves }]
+					);
 				}
 			}
 			if (f.obj.darkvision) {
 				if (actor.system.attributes.senses.darkvision < f.obj.darkvision) {
+					await actor.updateEmbeddedDocuments("Item",
+						[{ "_id": srcItem._id, "flags.build-character.darkvision": actor.system.attributes.senses.darkvision }]
+					);
 					actor.update({"data.attributes.senses.darkvision": f.obj.darkvision});
 					actor.update({"prototypeToken.sight.range": f.obj.darkvision});
 				}
 				
 			}
 			if (f.obj.size) {
-				if (actor.system.traits.size != f.obj.size)
+				if (actor.system.traits.size != f.obj.size) {
+					await actor.updateEmbeddedDocuments("Item",
+						[{ "_id": srcItem._id, "flags.build-character.size": actor.system.traits.size }]
+					);
 					actor.update({"data.traits.size": f.obj.size});
+				}
 			}
 			if (f.obj.speed) {
-				if (actor.system.attributes.movement.walk != f.obj.speed)
+				if (actor.system.attributes.movement.walk != f.obj.speed) {
+					await actor.updateEmbeddedDocuments("Item",
+						[{ "_id": srcItem._id, "flags.build-character.speed": actor.system.attributes.movement.walk }]
+					);
 					actor.update({"data.attributes.movement.walk": f.obj.speed});
+				}
 			}
-			if (f.obj.armor) {
+/*			if (f.obj.armor) {
 				//let armor = structuredClone(actor.system.traits.armorProf);
 				let armor = [];
 				for (const a of f.obj.armor)
 					armor.push(a.name);
 				actor.update({"system.traits.armorProf.value": armor});
 			}
+*/
 			if (f.obj.spellcasting) {
 				// Only set the spellcasting ability for the first class.
 				if (actor.items.filter(it => it.type == 'class' && it.system?.spellcasting?.ability).length <= 1)
@@ -618,7 +647,7 @@ export class BuildCharacter {
 		}
 	}
 
-	async chooseSkills(actor, features) {
+	async chooseSkills(item, actor, features) {
 		// Get the granted skills.
 		let grantedSkills = [];
 		let choices = [];
@@ -661,8 +690,20 @@ export class BuildCharacter {
 			}
 		}
 		
-		for (const skill of grantedSkills)
-			actor.update({[`data.skills.${skill}.value`]: 1});
+		let added = [];
+
+		for (const skill of grantedSkills) {
+			if (!actor.system.skills[skill].value) {
+				added.push(skill);
+				actor.update({[`data.skills.${skill}.value`]: 1});
+			}
+		}
+		
+		if (added.length > 0) {
+			await actor.updateEmbeddedDocuments("Item",
+				[{ "_id": item._id, "flags.build-character.skills": added }]
+			);
+		}
 		
 		return true;
 	}
@@ -721,12 +762,12 @@ export class BuildCharacter {
 		return pickedSkills;
 	}
 
-	async chooseSpells(actor, features) {
+	async chooseSpells(srcItem, actor, features) {
+		let addedSpells = [];
+
 		for (let f of features) {
 			if (!f || !f?.obj?.spells)
 				continue;
-
-			let addedSpells = [];
 
 			for (let s of f.obj.spells) {
 				if (s.advancement) {
@@ -747,7 +788,7 @@ export class BuildCharacter {
 							let itemData = item.toObject();
 							if (s.ability)
 								itemData.system.ability = s.ability;
-							let added = actor.createEmbeddedDocuments("Item", [itemData]);
+							let added = await actor.createEmbeddedDocuments("Item", [itemData]);
 							addedSpells = addedSpells.concat(added);
 						} else {
 							ui.notifications.warn(`Unable to read spell ${s.name} (${s.uuid})`);
@@ -756,6 +797,14 @@ export class BuildCharacter {
 				}
 			}
 		}
+		if (addedSpells.length > 0) {
+			let ids = [];
+			for (let spell of addedSpells)
+				ids.push(spell._id);
+			await actor.updateEmbeddedDocuments("Item",
+				[{ "_id": srcItem._id, "flags.build-character.spells": ids }]
+			);
+		}	
 	}
 	
 	async pickSpells(actor, feature, s) {
@@ -823,7 +872,7 @@ export class BuildCharacter {
 
 		for (let name of list) {
 			if (!spells.find((s) => name == s.name))
-				ui.notifications.warn(`build-character | Did not find ${name} in any compendium.`);
+				ui.notifications.warn(`Did not find ${name} in any compendium.`);
 		}
 		
 		let title = "Select Spells";
@@ -877,7 +926,7 @@ export class BuildCharacter {
 						itemData.system.ability = s.ability;
 					if (s.preparation)
 						itemData.system.preparation.mode = s.preparation;
-					addedSpells = addedSpells.concat(actor.createEmbeddedDocuments("Item", [itemData]));
+					addedSpells = addedSpells.concat(await actor.createEmbeddedDocuments("Item", [itemData]));
 				} else {
 					ui.notifications.warn(`Unable to read spell ${s.name} (${s.uuid})`);
 				}
@@ -1180,9 +1229,6 @@ export class BuildCharacter {
 
 		await this.checkVersion(am.actor);
 
-		if (item.flags['build-character'])
-			return;
-
 		if (item.type == 'class' || item.type == 'subclass') {
 			// FIX: for now only handle level 1. In future, could handle adding
 			// spells for drow at levels 3 and 5.
@@ -1190,8 +1236,6 @@ export class BuildCharacter {
 			if (step0.class.level > 1)
 				return;
 		}
-
-		item.flags['build-character'] = {added: true};
 
 		await this.readItemData();
 
@@ -1207,11 +1251,11 @@ export class BuildCharacter {
 		};
 		this.setSpellPrepMode(am.actor);
 		
-		await this.setOtherData(am.actor, [feature]);
-		let next = await this.chooseSkills(am.actor, [feature]);
+		await this.setOtherData(item, am.actor, [feature]);
+		let next = await this.chooseSkills(item, am.actor, [feature]);
 		if (!next)
 			return;
-		await this.chooseSpells(am.actor, [feature]);
+		await this.chooseSpells(item, am.actor, [feature]);
 	}
 	
 	async setSpellPrepMode(actor) {
@@ -1235,6 +1279,8 @@ export class BuildCharacter {
 	}
 
 	async checkVersion(actor) {
+		if (!actor)
+			return;
 		let curVersion = actor.getFlag('build-character', 'version');
 		if (curVersion == undefined || curVersion < this.bcVersion) {
 			// Fix anything that needs fixing to make the character
@@ -1247,8 +1293,7 @@ export class BuildCharacter {
 
 	async itemAdded(item) {
 		await this.checkVersion(item.parent);
-		if (item.flags['build-character'])
-			return;
+
 		if (item.type == 'class')
 			return;
 		if (item.type == 'spell') {
@@ -1267,8 +1312,6 @@ export class BuildCharacter {
 			}
 			return;
 		}
-
-		item.flags['build-character'] = {added: true};
 
 		await this.readItemData();
 
@@ -1293,8 +1336,12 @@ export class BuildCharacter {
 						});
 				}
 			}
-			if (obj)
+			if (obj) {
+				await item.parent.updateEmbeddedDocuments("Item",
+					[{ "_id": item._id, "flags.build-character.race": item.parent.system.details.race }]
+				);
 				item.parent.update({"data.details.race": item.name});
+			}
 			break;
 		case 'subclass':
 			obj = this.itemData.subclasses.find(r => item.name == r.name);
@@ -1311,12 +1358,12 @@ export class BuildCharacter {
 			uuid: null
 		};
 
-		await this.setOtherData(item.parent, [feature]);
-		let next = await this.chooseSkills(item.parent, [feature]);
+		await this.setOtherData(item, item.parent, [feature]);
+		let next = await this.chooseSkills(item, item.parent, [feature]);
 		if (!next)
 			return;
-		await this.chooseSpells(item.parent, [feature]);
-		await this.addFeatures(item.parent, feature);
+		await this.chooseSpells(item, item.parent, [feature]);
+		await this.addFeatures(item, item.parent, feature);
 	}
 	
 	async selectImage(actor) {
@@ -1387,6 +1434,101 @@ export class BuildCharacter {
 
 		picker.render();
 	}
+
+	/**	Undo the changes made by this item. If two items give the same thing,
+	 *	for example, a class gives armor proficiency and a race does too,
+	 *	don't remove the proficiency until there's no other contributor of the
+	 *	proficiency.
+	 */
+
+	deleteItem(item) {
+		function deleteItemList(list) {
+			// Don't try to delete items that have already been deleted.
+			let deleteThese = [];
+			for (let id of list) {
+				let obj = item.parent.items.has(id);
+				if (obj)
+					deleteThese.push(id);
+			}
+			if (deleteThese.length > 0)
+				item.parent.deleteEmbeddedDocuments("Item", deleteThese);
+		}
+		
+		function otherContributor(trait, prof) {
+			let count = 0;
+			for (let it of item.parent.items) {
+				let flags = it.flags['build-character'];
+				if (flags && flags.traits) {
+					if (flags.traits[trait]?.includes(prof))
+						return true;
+				}
+			}
+			return false;
+		}
+
+		let flags = item?.flags['build-character'];
+		if (!flags)
+			return;
+		if (flags.skills) {
+			// Unset selected skills.
+			for (let skill of item.flags['build-character'].skills)
+				item.parent.update({[`data.skills.${skill}.value`]: 0});
+		}
+		if (flags.traits) {
+			for (let trait of Object.keys(flags.traits)) {
+				let remaining = [];
+				for (let prof of item.parent.system.traits[trait].value)
+					if (!flags.traits[trait].includes(prof) || otherContributor(trait, prof))
+						remaining.push(prof);
+				item.parent.update({[`system.traits.${trait}.value`]: remaining});
+			}
+		}
+		if (flags.custom) {
+			for (let trait of Object.keys(flags.custom)) {
+				if (!item.parent.system?.traits[trait]?.custom)
+					break;
+				let remaining = [];
+				let items = item.parent.system.traits[trait].custom.split(/ *; */);
+				for (let it of items)
+					if (!flags.custom[trait].includes(it))
+						remaining.push(it);
+				item.parent.update({[`system.traits.${trait}.custom`]: remaining.join(';')});
+			}
+		}
+		if (flags.tools) {
+			for (let tool of flags.tools) {
+				// Remove this tool if no other item added it.
+				let count = 0;
+				for (let it of item.parent.items) {
+					let flags = it.flags['build-character'];
+					if (flags && flags.tools) {
+						if (flags?.tools.includes(tool)) {
+							count++;
+							break;
+						}
+					}
+				}
+				if (count <= 0)
+					item.parent.update({[`system.tools.-=${tool}`]: null});
+			}
+		}
+		if (flags.features)
+			deleteItemList(flags.features);
+		if (flags.spells)
+			deleteItemList(flags.spells);
+		if (flags.saves) {
+			for (let save of flags.saves)
+				item.parent.update({[`data.abilities.${save}.proficient`]: 0});
+		}
+		if (flags.darkvision != undefined)
+			item.parent.update({"data.attributes.senses.darkvision": flags.darkvision});
+		if (flags.speed != undefined)
+			item.parent.update({"data.attributes.movement.walk": flags.speed});
+		if (flags.size != undefined)
+			item.parent.update({"data.traits.size": flags.size});
+		if (flags.race != undefined)
+			item.parent.update({"system.details.race": flags.race});
+	}
 	
 	finish() {
 		// console.log(`build-character | Finished setting abilities for ${this.actor.name}`);
@@ -1409,6 +1551,16 @@ export class BuildCharacter {
 			let bc = new BuildCharacter();
 			if (bc)
 				bc.itemAdded(item);
+		});
+		Hooks.on("deleteItem", async function(item, sheet, data) {
+			// Exit immediately if item was created by another user.
+			if (data != game.user.id)
+				return;
+			if (item.flags['build-character']) {
+				let bc = new BuildCharacter();
+				if (bc)
+					bc.deleteItem(item);
+			}
 		});
 
 	}
