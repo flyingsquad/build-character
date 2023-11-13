@@ -2,6 +2,8 @@
  */
 
 export class BuildCharacter {
+	bcVersion = 1;
+
 	actor = null;
 	dlg = null;
 	itemData = {};
@@ -1176,6 +1178,8 @@ export class BuildCharacter {
 		if (!item || item.type != 'class')
 			return;
 
+		await this.checkVersion(am.actor);
+
 		if (item.flags['build-character'])
 			return;
 
@@ -1229,8 +1233,20 @@ export class BuildCharacter {
 		if (actor.getFlag('build-character', 'spellprepmode') != modes[0])
 			await actor.setFlag('build-character', 'spellprepmode', modes[0]);
 	}
-	
+
+	async checkVersion(actor) {
+		let curVersion = actor.getFlag('build-character', 'version');
+		if (curVersion == undefined || curVersion < this.bcVersion) {
+			// Fix anything that needs fixing to make the character
+			// compatible with this version of the module.
+			await this.readItemData();
+			await this.setSpellPrepMode(actor);
+			await actor.setFlag('build-character', 'version', this.bcVersion);
+		}
+	}
+
 	async itemAdded(item) {
+		await this.checkVersion(item.parent);
 		if (item.flags['build-character'])
 			return;
 		if (item.type == 'class')
