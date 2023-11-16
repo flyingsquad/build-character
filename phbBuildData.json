@@ -364,7 +364,7 @@
 			"spells": [
 				{"choose": 2, "level": "cantrip", "class": "wizard"},
 				{"choose": 2, "level": 1, "class": "wizard", "preparation": "always", "schools": ["evo", "abj"], "prompt": "Pick two spells from the Evocation or Abjuration school."},
-				{"choose": 1, "level": 1, "class": "wizard", "preparation": "always"	, "prompt": "Pick any spell from the wizard spell list."}
+				{"choose": 1, "level": 1, "class": "wizard", "preparation": "always", "prompt": "Pick any spell from the wizard spell list."}
 			]
 		},
 		{
@@ -507,6 +507,235 @@
 		}
 	],
 	"feats": [
-		"Actor", "Alert", "Athlete", "Charger", "Crossbow Expert", "Defensive Duelist", "Dual Wielder", "Dungeon Delver", "Durable", "Elemental Adept", "Grappler", "Healer", "Heavily Armored", "Heavy Armor Master", "Inspiring Leader", "Keen Mind", "Lightly Armored", "Linguist", "Lucky", "Mage Slayer", "Magic Initiate", "Moderately Armored", "Mounted Combatant", "Observant", "Polearm Master", "Prodigy", "Resilient", "Ritual Caster", "Savage Attacker", "Sentinel", "Sharpshooter", "Shield Master", "Skill Expert", "Skilled", "Skulker", "Spell Sniper", "Tavern Brawler", "Tough", "War Caster", "Weapon Master"
+		{
+			"name": "Actor",
+			"abilityinc": {
+				"ability": "cha",
+				"increase": 1,
+				"limit": 20
+			}
+		},
+		{"name": "Alert"},
+ 		{
+			"name": "Athlete",
+			"abilityinc": {
+				"choose": 1, 
+				"choices": ["str", "dex"],
+				"updatename": true,
+				"increase": 1, 
+				"limit": 20
+			}			
+		},
+ 		{"name": "Charger"},
+ 		{"name": "Crossbow Expert"},
+ 		{
+			"name": "Crusher",
+			"abilityinc": {
+				"choose": 1, 
+				"choices": ["str", "con"],
+				"increase": 1, 
+				"limit": 20
+			}			
+		},
+ 		{"name": "Defensive Duelist"},
+ 		{"name": "Dual Wielder"},
+ 		{"name": "Dungeon Delver"},
+ 		{
+			"name": "Durable",
+			"abilityinc": {
+				"ability": "con",
+				"increase": 1,
+				"limit": 20
+			}
+		},
+ 		{"name": "Elemental Adept"},
+ 		{"name": "Grappler"},
+ 		{"name": "Healer"},
+ 		{
+			"name": "Heavily Armored",
+			"abilityinc": {
+				"ability": "str",
+				"increase": 1,
+				"limit": 20
+			},
+			"armor": [
+				{"name": "hvy"}
+			]
+		},
+ 		{
+			"name": "Heavy Armor Master",
+			"abilityinc": {
+				"ability": "str",
+				"increase": 1,
+				"limit": 20
+			}
+		},
+ 		{"name": "Inspiring Leader"},
+ 		{
+			"name": "Keen Mind",
+			"abilityinc": {
+				"ability": "int",
+				"increase": 1,
+				"limit": 20
+			}
+		},
+ 		{
+			"name": "Lightly Armored",
+			"abilityinc": {
+				"choose": 1,
+				"choices": ["str", "dex"],
+				"increase": 1,
+				"limit": 20
+			},
+			"armor": [
+				{"name": "lgt"}
+			]
+		},
+ 		{
+			"name": "Linguist",
+			"abilityinc": {
+				"ability": "int",
+				"increase": 1,
+				"limit": 20
+			},
+			"languages": [
+				{"choose": 3}
+			]
+		},
+ 		{"name": "Lucky"},
+ 		{"name": "Mage Slayer"},
+ 		{"name": "Magic Initiate"},
+ 		{
+			"name": "Moderately Armored",
+			"abilityinc": {
+				"choose": 1,
+				"choices": ["str", "dex"],
+				"increase": 1,
+				"limit": 20
+			},
+			"armor": [
+				{"name": "med"}
+			]
+		},
+ 		{"name": "Mounted Combatant"},
+ 		{
+			"name": "Observant",
+			"abilityinc": {
+				"choose": 1,
+				"choices": ["int", "wis"],
+				"increase": 1,
+				"limit": 20
+			},
+			"passive": [
+				{"skill": "prc", "value": 5},
+				{"skill": "inv", "value": 5}
+			]
+		},
+ 		{
+			"name": "Piercer",
+			"abilityinc": {
+				"choose": 1,
+				"choices": ["str", "dex"],
+				"increase": 1,
+				"limit": 20
+			}
+		},
+ 		{"name": "Polearm Master"},
+ 		{"name": "Prodigy"},
+ 		{
+			"name": "Resilient",
+			"abilityinc": {
+				"choose": 1, 
+				"updatename": true,
+				"increase": 1, 
+				"limit": 20, 
+				"setsave": true
+			}
+		},
+ 		{"name": "Ritual Caster"},
+ 		{"name": "Savage Attacker"},
+ 		{"name": "Sentinel"},
+ 		{
+			"name": "Shadow Touched",
+			"abilityinc": {
+				"choose": 1,
+				"choices": ["int", "wis", "cha"],
+				"increase": 1,
+				"limit": 20
+			},
+			"spells": [
+				{
+					"name": "Invisibility", "uuid": "Compendium.dnd5e.spells.Item.1N8dDMMgZ1h1YJ3B",
+					"preparation": "atwill", "uses": {"max": 1, "value": 1, "per": "lr"}
+				},
+				{
+					"choose": 2, "preparation": "atwill", "level": 1, "schools": ["ill", "nec"],
+					"prompt": "Pick two spells from the Necromancy or Illusion school.", 
+					"uses": {"max": 1, "value": 1, "per": "lr"}
+				}
+			]
+		},
+ 		{"name": "Sharpshooter"},
+ 		{"name": "Shield Master"},
+ 		{
+			"name": "Skill Expert",
+			"abilityinc": {
+				"choose": 1, 
+				"updatename": true,
+				"increase": 1, 
+				"limit": 20
+			},
+			"skills": [
+				{
+					"updatename": true,
+					"choose": 1
+				}
+			],
+			"expertise": [
+				{"choose": 1, "updatename": true}
+			]
+		},
+ 		{
+			"name": "Skilled",
+			"skills": [
+				{"choose": 3}
+			]
+		},
+ 		{"name": "Skulker"},
+ 		{
+			"name": "Slasher",
+			"abilityinc": {
+				"choose": 1,
+				"choices": ["str", "dex"],
+				"increase": 1,
+				"limit": 20
+			}
+		},
+ 		{"name": "Spell Sniper"},
+ 		{
+			"name": "Tavern Brawler",
+			"abilityinc": {
+				"choose": 1, 
+				"choices": ["str", "con"],
+				"increase": 1, 
+				"limit": 20
+			}			
+		},
+ 		{
+			"name": "Tough"
+		},
+ 		{"name": "War Caster"},
+		{
+			"name": "Weapon Master",
+			"abilityinc": {
+				"choose": 1,
+				"choices": ["str", "dex"],
+				"increase": 1,
+				"limit": 20
+			},
+			"weapons": [
+				{"choose": 4}
+			]
+		}
 	]
 }

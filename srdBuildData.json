@@ -1,5 +1,5 @@
 {
-	"categories": ["feats"],
+	"categories": ["feat-class", "feats", "features", "consumable"],
 	"races": [
 		{
 			"name": "Dragonborn",
@@ -87,7 +87,7 @@
 		{
 			"name": "Half-Elf",
 			"abilities": {
-				"description": "Your Charisma score increases by 2, and two other ability scores of your choice increase by 1.",
+				"description": "Your Charisma score increases by 2, and two other ability scores of your choice increase by 1. <b>Be sure to enter these values in Racial Bonus for two abilities</b>.",
 				"Charisma": 2
 			},
 			"size": "med",
@@ -727,9 +727,49 @@
 			"spells": [
 				"Arcanist's Magic Aura", "Blur", "Color Spray", "Creation", "Disguise Self", "Dream", "Fear", "Greater Invisibility", "Hallucinatory Terrain", "Hypnotic Pattern", "Illusory Script", "Invisibility", "Magic Mouth", "Major Image", "Minor Illusion", "Mirage Arcane", "Mirror Image", "Mislead", "Phantasmal Killer", "Phantom Steed", "Programmed Illusion", "Project Image", "Seeming", "Silence", "Silent Image", "Simulacrum", "Weird"
 			]
+		},
+		{
+			"school": "nec",
+			"spells": [
+				"Animate Dead", "Astral Projection", "Bestow Curse", "Blight", "Blindness/Deafness", "Chill Touch", "Circle of Death", "Clone", "Contagion", "Create Undead", "Eyebite", "False Life", "Finger of Death", "Gentle Repose", "Harm", "Inflict Wounds", "Magic Jar", "Raise Dead", "Ray of Enfeeblement", "Resurrection", "Revivify", "Spare the Dying", "Speak with Dead", "True Resurrection", "Vampiric Touch"
+			]
+		}
+	],
+	"feat-class": [
+		{
+			"name": "Dragon Ancestor",
+			"features": [
+				{
+					"choose": 1,
+					"choices": [
+						{"name": "Dragon Ancestor: Black", "uuid": "Compendium.additional-dnd5e-resources.features.Item.8KY1XK9Zr3XfQIij"},
+						{"name": "Dragon Ancestor: Blue", "uuid": "Compendium.additional-dnd5e-resources.features.Item.69Le1lgFdsthpVHR"},
+						{"name": "Dragon Ancestor: Brass", "uuid": "Compendium.additional-dnd5e-resources.features.Item.iPnENk6hTIg3FRzP"},
+						{"name": "Dragon Ancestor: Bronze", "uuid": "Compendium.additional-dnd5e-resources.features.Item.LvqBD8Usyi7x95Gx"},
+						{"name": "Dragon Ancestor: Copper", "uuid": "Compendium.additional-dnd5e-resources.features.Item.u6kdGmYJfuvetBQc"},
+						{"name": "Dragon Ancestor: Gold", "uuid": "Compendium.additional-dnd5e-resources.features.Item.NB8wzU0QFr8eyfUE"},
+						{"name": "Dragon Ancestor: Green", "uuid": "Compendium.additional-dnd5e-resources.features.Item.l4F1mJo6YLYgKv0J"},
+						{"name": "Dragon Ancestor: Red", "uuid": "Compendium.additional-dnd5e-resources.features.Item.WySfSrNVebjLQSHE"},
+						{"name": "Dragon Ancestor: Silver", "uuid": "Compendium.additional-dnd5e-resources.features.Item.mPS9YVLa89kzFWbh"},
+						{"name": "Dragon Ancestor: White", "uuid": "Compendium.additional-dnd5e-resources.features.Item.ITap76xX3w1Ztqjj"}
+					]
+				}
+			]
 		}
 	],
 	"feats": [
-		"Grappler"
+		{"name": "Grappler"}
+	],
+	"features": [
+	],
+	"consumable": [
+		{
+			"name": "Arrow",
+			"ammo": {"for": "weapon"}
+		},
+		{
+			"name": "Crossbow Bolt",
+			"ammo": {"for": "weapon"}
+		}
 	]
 }

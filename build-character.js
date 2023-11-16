@@ -262,7 +262,8 @@ export class BuildCharacter {
 			let items = [];
 			if (f.category) {
 				if (bc.itemData[f.category]) {
-					for (let name of bc.itemData[f.category]) {
+					for (let it of bc.itemData[f.category]) {
+						let name = it.name;
 						for (const pack of game.packs) {
 							if (pack.metadata.type === 'Item') {
 								let entry = pack.index.find(e => name == e.name);
@@ -272,6 +273,10 @@ export class BuildCharacter {
 							}
 						}
 					}
+				}
+			} else if (f.choices) {
+				for (let it of f.choices) {
+					items.push({name: it.name, uuid: it.uuid});
 				}
 			}
 			
@@ -338,26 +343,33 @@ export class BuildCharacter {
 
 	skillName(key) {
 		return dnd5e.documents.Trait.keyLabel("skills", key);
-		if (CONFIG.DND5E.skills[key] === undefined)
-			return key;
-		return CONFIG.DND5E.skills[key].label;
 	}
 
 	langName(key) {
 		return dnd5e.documents.Trait.keyLabel("languages", key);
 	}
 
+	getWeaponName(key) {
+		return dnd5e.documents.Trait.keyLabel("weapon", key);		
+	}
+	
+	abilityName(key) {
+		return CONFIG.DND5E.abilities[key].label;
+	}
+
 	/**	Set data like saves, darkvision, etc.
 	 */
 
-	async setOtherData(srcItem, actor, features) {
+	async setData(srcItem, actor, features) {
 
 		let bc = this;
 
 		async function chooseProfs(source, item, trait, profs, custom, added, addedCustom) {
 			let choices = [];
 			let alreadyHave = [];
+			let itemType;
 			if (trait == 'languages') {
+				itemType = item.choose > 1 ? 'languages' : 'language';
 				for (let lang of Object.keys(CONFIG.DND5E.languages)) {
 					if (profs.findIndex(l => l == lang) >= 0)
 						alreadyHave.push(bc.langName(lang));
@@ -371,13 +383,28 @@ export class BuildCharacter {
 						choices.push({name: lang, key: lang, custom: true});
 					}
 				}
+			} else if (trait == 'weaponProf') {
+				itemType = item.choose > 1 ? 'weapons' : 'weapon';
+				for (let weapon of actor.system.traits[trait].value)
+					alreadyHave.push(bc.getWeaponName(weapon));
+				if (item.choices) {
+					for (let c of item.choices) {
+						if (!actor.system.traits[trait].value.has(c))
+							choices.push({name: bc.getWeaponName(c), key: c});
+					}
+				} else {
+					for (let weap of Object.keys(CONFIG.DND5E.weaponIds)) {
+						if (!actor.system.traits[trait].value.has(weap))
+							choices.push({name: bc.getWeaponName(weap), key: weap});
+					}
+				}
 			}
 
-			let prompt = `<p>Choose ${item.choose} ${trait} for ${source}.</p>`;
+			let prompt = `<p>Choose ${item.choose} ${itemType} for ${source}.</p>`;
 			
-			if (profs.length || custom.length) {
+			if (alreadyHave.length || custom.length) {
 				let str = alreadyHave.join(', ');
-				prompt += `<p>You already have the following ${trait}: ${str}</p>`;
+				prompt += `<p>You already have the following ${itemType}: ${str}</p>`;
 			}
 
 			let content = bc.choiceContent(choices, item.choose, prompt);
@@ -442,8 +469,10 @@ export class BuildCharacter {
 					added.push(item.name);
 				} else if (item.choose)
 					await chooseProfs(source, item, trait, profs, custom, added, addedCustom);
-				else if (item.custom)
+				else if (item.custom) {
 					custom.push(item.custom);
+					addedCustom.push(item.custom);
+				}
 			}
 			if (added.length > 0) {
 				actor.update({[`system.traits.${trait}.value`]: profs});
@@ -470,13 +499,7 @@ export class BuildCharacter {
 		}
 		
 		function getToolName(key) {
-			let name;
 			return dnd5e.documents.Trait.keyLabel("tool", key);		
-			if (name = CONFIG.DND5E.vehicleTypes[key])
-				return name;
-			if (name = getItemName(CONFIG.DND5E.toolIds[key]))
-				return name;
-			return key;
 		}
 
 		async function chooseTools(item, addedTools) {
@@ -578,88 +601,198 @@ export class BuildCharacter {
 				[{ "_id": srcItem._id, "flags.build-character.tools": addedTools }]
 			);
 		}
+		
+		async function appendChoice(srcItem, choice) {
+			let newName;
+			if (srcItem.name.indexOf(":") < 0)
+				newName = srcItem.name + ': ' + choice;
+			else
+				newName = srcItem.name + ', ' + choice;
+			await actor.updateEmbeddedDocuments("Item", [{ "_id": srcItem._id, "name": newName }]);
+		}
+		
+		async function increaseAbility(ability, increase, setsave, increasedAbilities) {
+			let curValue = actor.system.abilities[ability].value;
+			if (setsave) {
+				let save = actor.system.abilities[ability].proficient;
+				await actor.update({[`data.abilities.${ability}.proficient`]: 1});
+				increasedAbilities.push({
+					ability: ability,
+					increase: increase,
+					setsave: save
+				});
+			} else
+				increasedAbilities.push({ability: ability, increase: increase});
+			await actor.update({[`system.abilities.${ability}.value`]: curValue + increase});
+		}
 
-		for (const f of features) {
-			if (!f)
-				continue;
-			if (f.obj.saves !== undefined) {
-				if (actor.system.details.level <= 1) {
-					// Only the first class gets saving throw proficiencies.
-					let saves = [];
-					for (const save of f.obj.saves) {
-						saves.push(this.abilityNames[save]);
-						actor.update({[`data.abilities.${this.abilityNames[save]}.proficient`]: 1});
-					}
-					actor.updateEmbeddedDocuments("Item",
-						[{ "_id": srcItem._id, "flags.build-character.saves": saves }]
-					);
+		async function abilityIncrease(itemName, inc) {
+			let ability;
+			let increase = inc.increase ?? 1;
+			let increasedAbilities = [];
+
+			if (inc.ability) {
+				let abilityName = bc.abilityName(inc.ability);
+				let curValue = actor.system.abilities[inc.ability].value;
+				if (curValue + inc.increase >= inc.limit) {
+					await Dialog.prompt({
+					  title: "Ability Limit Reached",
+					  content: `<p>You cannot make this selection.</p></p>${abilityName} is already ${inc.limit} or higher.</p>`,
+					  label: "OK",
+					  callback: (html) => { ; }
+					});
+					
+					throw 'cancel';
 				}
-			}
-			if (f.obj.darkvision) {
-				if (actor.system.attributes.senses.darkvision < f.obj.darkvision) {
-					await actor.updateEmbeddedDocuments("Item",
-						[{ "_id": srcItem._id, "flags.build-character.darkvision": actor.system.attributes.senses.darkvision }]
-					);
-					actor.update({"data.attributes.senses.darkvision": f.obj.darkvision});
-					actor.update({"prototypeToken.sight.range": f.obj.darkvision});
-				}
+				await increaseAbility(inc.ability, inc.increase, false, increasedAbilities);
+			} else if (inc.choose) {
+				let choices = [];
+				let limit = inc.limit ?? 20;
 				
-			}
-			if (f.obj.size) {
-				if (actor.system.traits.size != f.obj.size) {
-					await actor.updateEmbeddedDocuments("Item",
-						[{ "_id": srcItem._id, "flags.build-character.size": actor.system.traits.size }]
-					);
-					actor.update({"data.traits.size": f.obj.size});
+				function pushChoice(limit, c, choices) {
+					let name = bc.abilityName(c);
+					if (!name)
+						return;
+					if (actor.system.abilities[c].value + increase <= limit)
+						choices.push({name: name, key: c});
 				}
-			}
-			if (f.obj.speed) {
-				if (actor.system.attributes.movement.walk != f.obj.speed) {
-					await actor.updateEmbeddedDocuments("Item",
-						[{ "_id": srcItem._id, "flags.build-character.speed": actor.system.attributes.movement.walk }]
-					);
-					actor.update({"data.attributes.movement.walk": f.obj.speed});
+
+				if (inc.choices) {
+					for (let c of inc.choices)
+						pushChoice(limit, c, choices)
+				} else {
+					for (let c in CONFIG.DND5E.abilities)
+						pushChoice(limit, c, choices)
 				}
+
+				if (choices.length == 0) {
+					await Dialog.prompt({
+					  title: "No Qualifying Abilities",
+					  content: `<p>No abilities qualify for an increase from ${itemName}.</p>
+						<p>The limit is ${limit} and it would be exceeded by adding ${increase}.</p>`,
+					  label: "OK",
+					  callback: (html) => { ; }
+					});
+					throw 'cancel';
+				}
+
+				let choose = inc.choose ?? 1;
+				prompt = `${itemName}: Choose ${choose} ability(ies) to increase by ${increase}.`;
+				let content = bc.choiceContent(choices, choose, prompt);
+				
+				let result = await doDialog({
+					title: `Choose Ability to Increase`,
+					content: content,
+					buttons: {
+						next: {
+							label: "Next",
+							icon: '<i class="fas fa-angles-right"></i>',
+							callback: async (html) => {
+								let chosenItems = bc.getChoices(html, choices);
+								let names = [];
+								for (let it of chosenItems) {
+									names.push(it.name);
+									await increaseAbility(it.key, increase, inc.setsave, increasedAbilities);
+								}
+								if (inc.updatename && names.length > 0)
+									await appendChoice(srcItem, names.join(', '));
+								return true;
+							}
+						},
+						cancel: {
+							label: "Cancel",
+							callback: (html) => { return false; }
+						}
+					},
+					default: "next",
+					close: () => { return false; },
+					render: (html) => { bc.handleChoiceRender(bc, html); }
+				});
+				if (!result)
+					throw 'cancel';
 			}
-/*			if (f.obj.armor) {
-				//let armor = structuredClone(actor.system.traits.armorProf);
-				let armor = [];
-				for (const a of f.obj.armor)
-					armor.push(a.name);
-				actor.update({"system.traits.armorProf.value": armor});
+			// Add selections to item to source item so they can be undone.
+			actor.updateEmbeddedDocuments("Item",
+				[{ "_id": srcItem._id, "flags.build-character.abilityinc": increasedAbilities }]
+			);
+		}
+		
+		async function selectExpertise(name, expertise) {
+			let choices = [];
+			let updateName = false;
+
+			for (let s of Object.keys(CONFIG.DND5E.skills)) {
+				if (actor.system.skills[s].proficient == 1)
+					choices.push({name: CONFIG.DND5E.skills[s].label, key: s});
 			}
-*/
-			if (f.obj.spellcasting) {
-				// Only set the spellcasting ability for the first class.
-				if (actor.items.filter(it => it.type == 'class' && it.system?.spellcasting?.ability).length <= 1)
-					actor.update({"system.attributes.spellcasting": f.obj.spellcasting});
+
+			if (choices.length == 0) {
+				await Dialog.prompt({
+				  title: "No Qualifying Skills",
+				  content: `<p>No skills qualify for expertise granted by ${name}.</p>
+					<p>You must be proficient in a skill to gain expertise.</p>`,
+				  label: "OK",
+				  callback: (html) => { ; }
+				});
+				throw 'cancel';
 			}
+
+			let choose = expertise.choose ?? 1;
+			prompt = `${name}: Choose ${choose} skill(s) to gain expertise in.`;
+			let content = bc.choiceContent(choices, choose, prompt);
 			
-			try {
-				await addProfs(f.obj.name, f.obj.armor, "armorProf");
-				await addProfs(f.obj.name, f.obj.weapons, "weaponProf");
-				await addProfs(f.obj.name, f.obj.languages, "languages");
-				await addTools(f.obj.tools);
-			} catch (msg) {
-				if (msg !== 'cancel')
-					throw msg;
+			let chosenSkills = [];
+			
+			let result = await doDialog({
+				title: `Choose Skills to Gain Expertise`,
+				content: content,
+				buttons: {
+					next: {
+						label: "Next",
+						icon: '<i class="fas fa-angles-right"></i>',
+						callback: async (html) => {
+							let chosenItems = bc.getChoices(html, choices);
+							for (let it of chosenItems) {
+								chosenSkills.push({skill: it.key, value: actor.system.skills[it.key].value});
+								await actor.update({[`data.skills.${it.key}.value`]: 2});
+							}
+							if (expertise.length > 0 && expertise[0].updatename && chosenItems.length > 0) {
+								let names = [];
+								for (let obj of chosenItems)
+									names.push(obj.name);
+								await appendChoice(srcItem, "Expertise: " + names.join(', '));
+							}
+							return true;
+						}
+					},
+					cancel: {
+						label: "Cancel",
+						callback: (html) => { return false; }
+					}
+				},
+				default: "next",
+				close: () => { return false; },
+				render: (html) => { bc.handleChoiceRender(bc, html); }
+			});
+			if (!result)
+				throw 'cancel';
+			// Add selections to item to source item so they can be undone.
+			actor.updateEmbeddedDocuments("Item",
+				[{ "_id": srcItem._id, "flags.build-character.expertise": chosenSkills }]
+			);
+		}
+
+		async function chooseSkills(item, actor, f) {
+			// Get the granted skills.
+			let updateName = false;
+			let grantedSkills = [];
+			let choices = [];
+			for (let s of Object.keys(CONFIG.DND5E.skills)) {
+				let proficient = actor.system.skills[s].proficient;
+				if (proficient)
+					grantedSkills.push(s);
 			}
-		}
-	}
 
-	async chooseSkills(item, actor, features) {
-		// Get the granted skills.
-		let grantedSkills = [];
-		let choices = [];
-		for (let s of Object.keys(CONFIG.DND5E.skills)) {
-			let proficient = actor.system.skills[s].proficient;
-			if (proficient)
-				grantedSkills.push(s);
-		}
-
-		for (const f of features) {
-			if (!f || !f?.obj?.skills)
-				continue;
 			for (const skill of f.obj.skills) {
 				if (skill.name != undefined) {
 					// Add this skill to the list granted, but if it's already
@@ -667,7 +800,7 @@ export class BuildCharacter {
 					// replacement for it.
 
 					if (grantedSkills.find(s => s == skill.name)) {
-						const skname = this.skillName(skill.name);
+						const skname = bc.skillName(skill.name);
 						choices.push({choose: 1, reason: `${f.obj.name}: another feature already granted the skill ${skname}. Pick another skill in its place.`});
 					} else
 						grantedSkills.push(skill.name);
@@ -677,97 +810,111 @@ export class BuildCharacter {
 					choices.push({choose: skill.choose, options: skill.options,
 						reason: `Choose skill(s) for ${f.name}`});
 				}
+				if (skill.updatename)
+					updateName = true;
 			}
-		}
-		
-		if (choices.length > 0) {
-			for (const choice of choices) {
-				let selected = await this.pickSkills(choice, grantedSkills);
-				if (!selected || selected.length == 0)
-					return false;
-				for (let i = 0; i < selected.length; i++)
-					grantedSkills.push(selected[i]);
+			
+			if (choices.length > 0) {
+				for (const choice of choices) {
+					let selected = await pickSkills(choice, grantedSkills);
+					if (!selected || selected.length == 0)
+						return false;
+					for (let i = 0; i < selected.length; i++)
+						grantedSkills.push(selected[i]);
+				}
 			}
-		}
-		
-		let added = [];
+			
+			let added = [];
 
-		for (const skill of grantedSkills) {
-			if (!actor.system.skills[skill].value) {
-				added.push(skill);
-				actor.update({[`data.skills.${skill}.value`]: 1});
+			for (const skill of grantedSkills) {
+				if (!actor.system.skills[skill].value) {
+					added.push(skill);
+					await actor.update({[`data.skills.${skill}.value`]: 1});
+				}
 			}
-		}
-		
-		if (added.length > 0) {
-			await actor.updateEmbeddedDocuments("Item",
-				[{ "_id": item._id, "flags.build-character.skills": added }]
-			);
-		}
-		
-		return true;
-	}
-	
-	
-	async pickSkills(choice, grantedSkills) {
-		let allSkills = ["acr", "ani", "arc", "ath", "dec", "his", "ins", "itm", "inv", "med", "nat", "prc", "prf", "per", "rel", "slt", "ste", "sur"];	
-		let list = choice.options != undefined ? choice.options : allSkills;
-		let skills = [];
-		for (let skill of list) {
-			if (grantedSkills.find(s => s == skill))
-				continue;
-			skills.push(
-				{name: this.skillName(skill), code: skill}
-			);
-		}
-		let alreadySelected = [];
-		for (let s of grantedSkills) {
-			alreadySelected.push(this.skillName(s));
-		}
-		let prompt = `<p>${choice.reason}</p>`;
-		if (alreadySelected.length > 0) {
-			let str = alreadySelected.join(', ');
-			prompt += `<p style="left-margin: .2in">Already selected: ${str}</p>\n`;
+			
+			if (added.length > 0) {
+				if (updateName && added.length > 0) {
+					let names = [];
+					for (let skill of added)
+						names.push(bc.skillName(skill));
+					await appendChoice(srcItem, names.join(', '));
+				}
+				
+				await actor.updateEmbeddedDocuments("Item",
+					[{ "_id": item._id, "flags.build-character.skills": added }]
+				);
+			}
+			
+			return true;
 		}
 
-		let dlgOptions = {};
-		if (skills.length > 10)
-			dlgOptions.width = 600;
+		async function pickSkills(choice, grantedSkills) {
+			let allSkills = ["acr", "ani", "arc", "ath", "dec", "his", "ins", "itm", "inv", "med", "nat", "prc", "prf", "per", "rel", "slt", "ste", "sur"];	
+			let list = choice.options != undefined ? choice.options : allSkills;
+			let skills = [];
+			for (let skill of list) {
+				if (grantedSkills.find(s => s == skill))
+					continue;
+				skills.push(
+					{name: bc.skillName(skill), code: skill}
+				);
+			}
+			let alreadySelected = [];
+			for (let s of grantedSkills) {
+				alreadySelected.push(bc.skillName(s));
+			}
+			let prompt = `<p>${choice.reason}</p>`;
+			if (alreadySelected.length > 0) {
+				let str = alreadySelected.join(', ');
+				prompt += `<p style="left-margin: .2in">Already selected: ${str}</p>\n`;
+			}
 
-		let content = this.choiceContent(skills, choice.choose, prompt);
-		let pickedSkills = [];
-		let result = await doDialog({
-		  title: "Choose Skills",
-		  content: content,
-		  buttons: {
-			ok: {
-			  label: "OK",
-			  icon: '<i class="fas fa-angles-right"></i>',
-			  callback: async (html) => {
-				  let chosenSkills = this.getChoices(html, skills);
-				  for (let skill of chosenSkills)
-					  pickedSkills.push(skill.code);
-				  return true;
+			let dlgOptions = {};
+			if (skills.length > 10)
+				dlgOptions.width = 600;
+
+			let content = bc.choiceContent(skills, choice.choose, prompt);
+			let pickedSkills = [];
+			let result = await doDialog({
+			  title: "Choose Skills",
+			  content: content,
+			  buttons: {
+				ok: {
+				  label: "OK",
+				  icon: '<i class="fas fa-angles-right"></i>',
+				  callback: async (html) => {
+					  let chosenSkills = bc.getChoices(html, skills);
+					  for (let skill of chosenSkills)
+						  pickedSkills.push(skill.code);
+					  return true;
+				  },
+				},
+				cancel: {
+					label: "Cancel",
+					callback: (html) => { return null; }
+				},
 			  },
-			},
-			cancel: {
-				label: "Cancel",
-				callback: (html) => { return null; }
-			},
-		  },
-		  default: "ok",
-		  close: () => { return false; },
-		  render: (html) => { this.handleChoiceRender(this, html); }
-		}, "", dlgOptions);
-		return pickedSkills;
-	}
+			  default: "ok",
+			  close: () => { return false; },
+			  render: (html) => { bc.handleChoiceRender(this, html); }
+			}, "", dlgOptions);
+			return pickedSkills;
+		}
+		
+		function setSpellData(itemData, s) {
+			if (s.ability)
+				itemData.system.ability = s.ability;
+			if (s.preparation)
+				itemData.system.preparation.mode = s.preparation;
+			if (s.uses) {
+				for (let fld in s.uses)
+					itemData.system.uses[fld] = s.uses[fld];
+			}
+		}
 
-	async chooseSpells(srcItem, actor, features) {
-		let addedSpells = [];
-
-		for (let f of features) {
-			if (!f || !f?.obj?.spells)
-				continue;
+		async function chooseSpells(srcItem, actor, f) {
+			let addedSpells = [];
 
 			for (let s of f.obj.spells) {
 				if (s.advancement) {
@@ -776,7 +923,7 @@ export class BuildCharacter {
 					// advancement feature when the user levels up.
 					;
 				} else if (s.choose) {
-					let added = await this.pickSpells(actor, f, s);
+					let added = await pickSpells(actor, f, s);
 					if (!added)
 						return false;
 					addedSpells = addedSpells.concat(added);
@@ -786,49 +933,109 @@ export class BuildCharacter {
 						const item = await fromUuid(s.uuid);
 						if (item) {
 							let itemData = item.toObject();
-							if (s.ability)
-								itemData.system.ability = s.ability;
+							setSpellData(itemData, s);
 							let added = await actor.createEmbeddedDocuments("Item", [itemData]);
 							addedSpells = addedSpells.concat(added);
 						} else {
 							ui.notifications.warn(`Unable to read spell ${s.name} (${s.uuid})`);
 						}
-					}
+					} else
+						ui.notifications.warn(`No uuid provided for spell "${s.name}" in item data.`);
 				}
 			}
-		}
-		if (addedSpells.length > 0) {
-			let ids = [];
-			for (let spell of addedSpells)
-				ids.push(spell._id);
-			await actor.updateEmbeddedDocuments("Item",
-				[{ "_id": srcItem._id, "flags.build-character.spells": ids }]
-			);
-		}	
-	}
-	
-	async pickSpells(actor, feature, s) {
-		let spells = [];
 
-		let list = [];
-
-		let levelList = this.itemData.spells.find((lev) => lev.level == s.level);
-		if (!levelList) {
-			ui.notifications.warn(`pickSpells: No level ${s.level} spells found`);
-			return false;
+			if (addedSpells.length > 0) {
+				let ids = [];
+				for (let spell of addedSpells)
+					ids.push(spell._id);
+				await actor.updateEmbeddedDocuments("Item",
+					[{ "_id": srcItem._id, "flags.build-character.spells": ids }]
+				);
+			}	
 		}
-		let classList = this.itemData.spells.find((c) => c.class == s.class);
-		if (!classList)
-			throw new Error(`pickSpells: No ${s.class} class spells found`);
 		
-		let alreadySelected = [];
+		async function selectAmmoWeapon(name, ammo) {
+			// Find a weapon in the inventory that takes ammo.
+			let weapons = [];
+			let weapon = null;
+			for (let it of actor.items) {
+				if (it.type == ammo.for && it.system?.properties.amm)
+					weapons.push({"name": it.name, "id": it._id});
+			}
+			if (weapons.length == 0)
+				return;
+			if (weapons.length == 1) {
+				weapon = weapons[0];
+			} else {
+				prompt = `Choose the ${ammo.for} that uses ${name}.`;
+				let content = bc.choiceContent(weapons, 1, prompt);
 
-		for (let name of levelList.spells) {
-			if (classList.spells.includes(name)) {
+				let result = await doDialog({
+					title: `Choose Weapon for Ammunition`,
+					content: content,
+					buttons: {
+						next: {
+							label: "Next",
+							icon: '<i class="fas fa-angles-right"></i>',
+							callback: async (html) => {
+								let chosenItems = bc.getChoices(html, weapons);
+								if (chosenItems.length > 0)
+									weapon = chosenItems[0];
+								return true;
+							}
+						},
+						cancel: {
+							label: "Cancel",
+							callback: (html) => { return false; }
+						}
+					},
+					default: "next",
+					close: () => { return false; },
+					render: (html) => { bc.handleChoiceRender(bc, html); }
+				});
+				if (!result)
+					throw 'cancel';
+			}
+
+			if (weapon) {
+				await actor.updateEmbeddedDocuments("Item",
+					[
+						{ "_id": weapon.id, "system.consume.target": srcItem._id },
+						{ "_id": weapon.id, "system.consume.type": 'ammo' },
+						{ "_id": weapon.id, "system.consume.amount": 1 }
+					]
+				);
+				
+			}
+		}
+		
+		async function pickSpells(actor, feature, s) {
+			let spells = [];
+
+			let list = [];
+
+			let levelList = bc.itemData.spells.find((lev) => lev.level == s.level);
+			if (!levelList) {
+				ui.notifications.warn(`pickSpells: No level ${s.level} spells found`);
+				return false;
+			}
+			let classList = null;
+			if (s.class) {
+				classList = bc.itemData.spells.find((c) => c.class == s.class);
+				if (!classList)
+					throw new Error(`No definitions found for ${s.class} for choosing spells.`);
+			}
+			
+			let alreadySelected = [];
+
+			for (let name of levelList.spells) {
+				if (classList)
+					if (!classList.spells.includes(name))
+						continue;
 				if (s.schools) {
 					let found = false;
 					for (const school of s.schools) {
-						const schoolList = this.itemData.spells.find(sch => sch.school == school);
+						const schoolList = bc.itemData.spells.find(sch => sch.school == school);
 						if (schoolList) {
 							if (schoolList.spells.includes(name)) {
 								found = true;
@@ -844,97 +1051,206 @@ export class BuildCharacter {
 				else
 					list.push(name);
 			}
-		}
-		
-		// Fetch uuid from compendium index.
+			
+			// Fetch uuid from compendium index.
 
-		for (const pack of game.packs) {
-			if (pack.metadata.type === 'Item') {
-				for (let spell of list) {
-					let sp = pack.index.find((obj) => obj.type == 'spell' && spell == obj.name);
-					if (sp) {
-						spells.push(
-							{
-								name: spell,
-								ability: s.ability,
-								preparation: s.preparation,
-								pack: pack.metadata.id,
-								obj: spell,
-								uuid: sp.uuid
-							}
-						);
+			for (const pack of game.packs) {
+				if (pack.metadata.type === 'Item') {
+					for (let spell of list) {
+						let sp = pack.index.find((obj) => obj.type == 'spell' && spell == obj.name);
+						if (sp) {
+							spells.push(
+								{
+									name: spell,
+									ability: s.ability,
+									preparation: s.preparation,
+									uses: s.uses,
+									pack: pack.metadata.id,
+									obj: spell,
+									uuid: sp.uuid
+								}
+							);
+						}
 					}
 				}
 			}
-		}
-		
-		// Report any items that weren't found in a pack to check for typoes.
+			
+			// Report any items that weren't found in a pack to check for typoes.
 
-		for (let name of list) {
-			if (!spells.find((s) => name == s.name))
-				ui.notifications.warn(`Did not find ${name} in any compendium.`);
-		}
-		
-		let title = "Select Spells";
-		
-		let type = s.level == 'cantrip' ? 'cantrip(s)' : `level ${s.level} spell(s)`;
-		let description;
-		if (s.prompt)
-			description = s.prompt;
-		else
-			description = `Select ${s.choose} ${type} for ${feature.name}.`;
-		if (alreadySelected.length > 0)
-			description += "<br><br>Already selected: " + alreadySelected.join(', ');
+			for (let name of list) {
+				if (!spells.find((s) => name == s.name))
+					ui.notifications.warn(`Did not find ${name} in any compendium.`);
+			}
+			
+			let title = "Select Spells";
+			
+			let type = s.level == 'cantrip' ? 'cantrip(s)' : `level ${s.level} spell(s)`;
+			let description;
+			if (s.prompt)
+				description = s.prompt;
+			else
+				description = `Select ${s.choose} ${type} for ${feature.name}.`;
+			if (alreadySelected.length > 0)
+				description += "<br><br>Already selected: " + alreadySelected.join(', ');
 
-		let dlgOptions = {};
-		if (spells.length > 10)
-			dlgOptions.width = 600;
+			let dlgOptions = {};
+			if (spells.length > 10)
+				dlgOptions.width = 600;
 
-		let content = this.choiceContent(spells, s.choose, description, []);
-		let chosenSpells = undefined;
+			let content = bc.choiceContent(spells, s.choose, description, []);
+			let chosenSpells = undefined;
 
-		let next = await Dialog.wait({
-		  title: title,
-		  content: content,
-		  buttons: {
-			next: {
-			  label: "Next",
-			  icon: '<i class="fas fa-angles-right"></i>',
-			  callback: async (html) => {
-				  chosenSpells = this.getChoices(html, spells);
-				  return +1;
+			let next = await Dialog.wait({
+			  title: title,
+			  content: content,
+			  buttons: {
+				next: {
+				  label: "Next",
+				  icon: '<i class="fas fa-angles-right"></i>',
+				  callback: async (html) => {
+					  chosenSpells = bc.getChoices(html, spells);
+					  return +1;
+				  },
+				},
+				cancel: {
+					label: "Cancel",
+					callback: (html) => { return 0; }
+				},
 			  },
-			},
-			cancel: {
-				label: "Cancel",
-				callback: (html) => { return 0; }
-			},
-		  },
-		  default: "next",
-		  close: () => { return false; },
-		  render: (html) => { this.handleChoiceRender(this, html); }
-		}, dlgOptions);
+			  default: "next",
+			  close: () => { return false; },
+			  render: (html) => { bc.handleChoiceRender(bc, html); }
+			}, dlgOptions);
 
-		let addedSpells = [];
+			let addedSpells = [];
 
-		if (next > 0) {
-			for (let s of chosenSpells) {
-				const item = await fromUuid(s.uuid);
-				if (item) {
-					let itemData = item.toObject();
-					if (s.ability)
-						itemData.system.ability = s.ability;
-					if (s.preparation)
-						itemData.system.preparation.mode = s.preparation;
-					addedSpells = addedSpells.concat(await actor.createEmbeddedDocuments("Item", [itemData]));
-				} else {
-					ui.notifications.warn(`Unable to read spell ${s.name} (${s.uuid})`);
+			if (next > 0) {
+				for (let s of chosenSpells) {
+					const item = await fromUuid(s.uuid);
+					if (item) {
+						let itemData = item.toObject();
+						setSpellData(itemData, s);
+						addedSpells = addedSpells.concat(await actor.createEmbeddedDocuments("Item", [itemData]));
+					} else {
+						ui.notifications.warn(`Unable to read spell ${s.name} (${s.uuid})`);
+					}
 				}
 			}
+			
+			return addedSpells;
 		}
 		
-		return addedSpells;
+		async function addPassive(passive) {
+			for (let entry of passive) {
+				let curValue = actor.system.skills[entry.skill].passive;
+				await actor.update({[`system.skills.${entry.skill}.passive`]: entry.value + curValue});
+			}
+			await actor.updateEmbeddedDocuments("Item",
+				[{ "_id": srcItem._id, "flags.build-character.passive": passive }]
+			);
+		}
+
+		for (const f of features) {
+			if (!f)
+				continue;
+
+			try {
+				for (let task in f.obj) switch (task) {
+				case 'skills':
+					await chooseSkills(srcItem, actor, f);
+					break;
+				case 'spells':
+					await chooseSpells(srcItem, actor, f);
+					break;
+				case 'features':
+					await this.addFeatures(srcItem, actor, f);				
+					break;
+				case 'saves':
+					if (actor.system.details.level <= 1) {
+						// Only the first class gets saving throw proficiencies.
+						let saves = [];
+						for (const save of f.obj.saves) {
+							saves.push(this.abilityNames[save]);
+							actor.update({[`data.abilities.${this.abilityNames[save]}.proficient`]: 1});
+						}
+						actor.updateEmbeddedDocuments("Item",
+							[{ "_id": srcItem._id, "flags.build-character.saves": saves }]
+						);
+					}
+					break;
+				case 'darkvision':
+					if (actor.system.attributes.senses.darkvision < f.obj.darkvision) {
+						await actor.updateEmbeddedDocuments("Item",
+							[{ "_id": srcItem._id, "flags.build-character.darkvision": actor.system.attributes.senses.darkvision }]
+						);
+						actor.update({"data.attributes.senses.darkvision": f.obj.darkvision});
+						actor.update({"prototypeToken.sight.range": f.obj.darkvision});
+					}
+					break;
+				case 'hplevel':
+					let hpbonus = Number(actor.system.attributes.hp.bonuses.level) + f.obj.hplevel;
+					await actor.update({"system.attributes.hp.bonuses.level": hpbonus});
+					await actor.updateEmbeddedDocuments("Item",
+						[{ "_id": srcItem._id, "flags.build-character.hplevel": f.obj.hplevel }]
+					);
+					break;
+				case 'size':
+					if (actor.system.traits.size != f.obj.size) {
+						await actor.updateEmbeddedDocuments("Item",
+							[{ "_id": srcItem._id, "flags.build-character.size": actor.system.traits.size }]
+						);
+						actor.update({"data.traits.size": f.obj.size});
+					}
+					break;
+				case 'speed':
+					if (actor.system.attributes.movement.walk != f.obj.speed) {
+						await actor.updateEmbeddedDocuments("Item",
+							[{ "_id": srcItem._id, "flags.build-character.speed": actor.system.attributes.movement.walk }]
+						);
+						actor.update({"data.attributes.movement.walk": f.obj.speed});
+					}
+					break;
+
+				case 'spellcasting':
+					// Only set the spellcasting ability for the first class.
+					if (actor.items.filter(it => it.type == 'class' && it.system?.spellcasting?.ability).length <= 1)
+						actor.update({"system.attributes.spellcasting": f.obj.spellcasting});
+					break;
+				case 'armor':
+					await addProfs(f.obj.name, f.obj.armor, "armorProf");
+					break;
+				case 'weapons':
+					await addProfs(f.obj.name, f.obj.weapons, "weaponProf");
+					break;
+				case 'languages':
+					await addProfs(f.obj.name, f.obj.languages, "languages");
+					break;
+				case 'tools':
+					await addTools(f.obj.tools);
+					break;
+				case 'abilityinc':
+					await abilityIncrease(f.obj.name, f.obj.abilityinc);
+					break;
+				case 'expertise':
+					await selectExpertise(f.obj.name, f.obj.expertise);
+					break;
+				case 'passive':
+					await addPassive(f.obj.passive);
+					break;
+				case 'ammo':
+					if (f.obj.ammo)
+						selectAmmoWeapon(f.obj.name, f.obj.ammo);
+					break;
+				default:
+					break;
+				}
+			} catch (msg) {
+				if (msg !== 'cancel')
+					throw msg;
+			}
+		}
 	}
+
 
 	choiceContent(choices, limit, description, prechecked) {
 
@@ -1251,11 +1567,7 @@ export class BuildCharacter {
 		};
 		this.setSpellPrepMode(am.actor);
 		
-		await this.setOtherData(item, am.actor, [feature]);
-		let next = await this.chooseSkills(item, am.actor, [feature]);
-		if (!next)
-			return;
-		await this.chooseSpells(item, am.actor, [feature]);
+		await this.setData(item, am.actor, [feature]);
 	}
 	
 	async setSpellPrepMode(actor) {
@@ -1294,16 +1606,64 @@ export class BuildCharacter {
 	async itemAdded(item) {
 		await this.checkVersion(item.parent);
 
-		if (item.type == 'class')
+		await this.readItemData();
+
+		let obj = null;
+
+		switch (item.type) {
+		case 'background':
+			obj = this.itemData.backgrounds.find(r => item.name == r.name);
+			break;
+		case 'feat':
+			switch (item.system.type.value) {
+			case 'feat':
+				if (this.itemData.feats)
+					obj = this.itemData.feats.find(r => item.name == r.name);
+				break;
+			case '':
+				// Race or subrace. Also set value on character sheet.
+				// Blank system.type may be a race or subrace.
+				obj = this.itemData.races.find(r => item.name == r.name);
+				if (!obj) {
+					obj = this.itemData.subraces.find(r => item.name == r.name);
+					if (obj && obj.race) {
+						if (!item.parent.items.find(r => r.name == obj.race))
+							Dialog.prompt({title: "Race Missing",
+								content: `<p>The ${obj.name} subrace requires the ${obj.race} race.<p>`
+							});
+					}
+				}
+				if (obj) {
+					await item.parent.updateEmbeddedDocuments("Item",
+						[{ "_id": item._id, "flags.build-character.race": item.parent.system.details.race }]
+					);
+					item.parent.update({"data.details.race": item.name});
+				} else {
+					obj = this.itemData.features.find(r => item.name == r.name);
+				}
+				break;
+			default:
+				if (item.system?.type?.value) {
+					let listName = 'feat-' + item.system.type.value;
+					if (this.itemData[listName])
+						obj = this.itemData[listName].find(r => item.name == r.name);
+				}
+				break;
+			}
+			break;
+		case 'subclass':
+			obj = this.itemData.subclasses.find(r => item.name == r.name);
+			break;
+		case 'class':
+			// Classes are handled by the advancement complete hook.
 			return;
-		if (item.type == 'spell') {
+		case 'spell':
 			// Set spell preparation mode for level 1+ spells to mode indicated
 			// on character if they come in marked as unprepared (spells added for a class will
 			// have the preparation mode marked, but spells added directly by user
 			// will always be prepared, the default value).
 			if (item.system.level <= 0 || item.system.preparation.mode != 'prepared')
 				return;
-			await this.readItemData();
 			const spellprepmode = item.parent.getFlag('build-character', 'spellprepmode');
 			if (item.parent.getFlag('build-character', 'spellprepmode') == undefined)
 				this.setSpellPrepMode(item.parent);
@@ -1311,40 +1671,10 @@ export class BuildCharacter {
                 item.parent.updateEmbeddedDocuments("Item", [{ "_id": item._id, "system.preparation.mode": spellprepmode }]);
 			}
 			return;
-		}
-
-		await this.readItemData();
-
-		let obj = null;
-
-		// Perform actions for races, subraces and backgrounds that don't
-		// have advancement steps.
-
-		switch (item.type) {
-		case 'background':
-			obj = this.itemData.backgrounds.find(r => item.name == r.name);
-			break;
-		case 'feat':
-			// Race or subrace. Also set value on character sheet.
-			obj = this.itemData.races.find(r => item.name == r.name);
-			if (!obj) {
-				obj = this.itemData.subraces.find(r => item.name == r.name);
-				if (obj && obj.race) {
-					if (!item.parent.items.find(r => r.name == obj.race))
-						Dialog.prompt({title: "Race Missing",
-							content: `<p>The ${obj.name} subrace requires the ${obj.race} race.<p>`
-						});
-				}
+		default:
+			if (this.itemData[item.type]) {
+				obj = this.itemData[item.type].find(r => item.name == r.name);
 			}
-			if (obj) {
-				await item.parent.updateEmbeddedDocuments("Item",
-					[{ "_id": item._id, "flags.build-character.race": item.parent.system.details.race }]
-				);
-				item.parent.update({"data.details.race": item.name});
-			}
-			break;
-		case 'subclass':
-			obj = this.itemData.subclasses.find(r => item.name == r.name);
 			break;
 		}
 
@@ -1358,12 +1688,7 @@ export class BuildCharacter {
 			uuid: null
 		};
 
-		await this.setOtherData(item, item.parent, [feature]);
-		let next = await this.chooseSkills(item, item.parent, [feature]);
-		if (!next)
-			return;
-		await this.chooseSpells(item, item.parent, [feature]);
-		await this.addFeatures(item, item.parent, feature);
+		await this.setData(item, item.parent, [feature]);
 	}
 	
 	async selectImage(actor) {
@@ -1469,12 +1794,14 @@ export class BuildCharacter {
 		let flags = item?.flags['build-character'];
 		if (!flags)
 			return;
-		if (flags.skills) {
+
+		for (let type in flags) switch (type) {
+		case 'skills':
 			// Unset selected skills.
 			for (let skill of item.flags['build-character'].skills)
 				item.parent.update({[`data.skills.${skill}.value`]: 0});
-		}
-		if (flags.traits) {
+			break;
+		case 'traits':
 			for (let trait of Object.keys(flags.traits)) {
 				let remaining = [];
 				for (let prof of item.parent.system.traits[trait].value)
@@ -1482,8 +1809,8 @@ export class BuildCharacter {
 						remaining.push(prof);
 				item.parent.update({[`system.traits.${trait}.value`]: remaining});
 			}
-		}
-		if (flags.custom) {
+			break;
+		case 'custom':
 			for (let trait of Object.keys(flags.custom)) {
 				if (!item.parent.system?.traits[trait]?.custom)
 					break;
@@ -1494,8 +1821,8 @@ export class BuildCharacter {
 						remaining.push(it);
 				item.parent.update({[`system.traits.${trait}.custom`]: remaining.join(';')});
 			}
-		}
-		if (flags.tools) {
+			break;
+		case 'tools':
 			for (let tool of flags.tools) {
 				// Remove this tool if no other item added it.
 				let count = 0;
@@ -1511,23 +1838,52 @@ export class BuildCharacter {
 				if (count <= 0)
 					item.parent.update({[`system.tools.-=${tool}`]: null});
 			}
-		}
-		if (flags.features)
+			break;
+		case 'features':
 			deleteItemList(flags.features);
-		if (flags.spells)
+			break;
+		case 'spells':
 			deleteItemList(flags.spells);
-		if (flags.saves) {
+			break;
+		case 'saves':
 			for (let save of flags.saves)
 				item.parent.update({[`data.abilities.${save}.proficient`]: 0});
-		}
-		if (flags.darkvision != undefined)
+			break;
+		case 'darkvision':
 			item.parent.update({"data.attributes.senses.darkvision": flags.darkvision});
-		if (flags.speed != undefined)
+			break;
+		case 'speed':
 			item.parent.update({"data.attributes.movement.walk": flags.speed});
-		if (flags.size != undefined)
+			break;
+		case 'size':
 			item.parent.update({"data.traits.size": flags.size});
-		if (flags.race != undefined)
+			break;
+		case 'race':
 			item.parent.update({"system.details.race": flags.race});
+			break;
+		case 'abilityinc':
+			for (let inc of flags.abilityinc) {
+				let newValue = item.parent.system.abilities[inc.ability].value - inc.increase;
+				item.parent.update({[`system.abilities.${inc.ability}.value`]: newValue});
+				if (inc.setsave !== undefined)
+					item.parent.update({[`system.abilities.${inc.ability}.proficient`]: inc.setsave});
+			}
+			break;
+		case 'expertise':
+			for (let e of flags.expertise)
+				item.parent.update({[`system.skills.${e.skill}.value`]: e.value});
+			break;
+		case 'hplevel':
+			let hplevelbonus = item.parent.system.attributes.hp.bonuses.level;
+			item.parent.update({"system.attributes.hp.bonuses.level": hplevelbonus-flags.hplevel});
+			break;
+		case 'passive':
+			for (let passive of flags.passive) {
+				let curValue = item.parent.system.skills[passive.skill].passive;
+				item.parent.update({[`system.skills.${passive.skill}.passive`]: curValue - passive.value});
+			}
+			break;
+		}
 	}
 	
 	finish() {
@@ -1546,7 +1902,7 @@ export class BuildCharacter {
 
 		Hooks.on("createItem", async function(item, sheet, data) {
 			// Exit immediately if item was created by another user.
-			if (data != game.user.id)
+			if (data != game.user.id || !item.parent)
 				return;
 			let bc = new BuildCharacter();
 			if (bc)
@@ -1554,7 +1910,7 @@ export class BuildCharacter {
 		});
 		Hooks.on("deleteItem", async function(item, sheet, data) {
 			// Exit immediately if item was created by another user.
-			if (data != game.user.id)
+			if (data != game.user.id || !item.parent)
 				return;
 			if (item.flags['build-character']) {
 				let bc = new BuildCharacter();
@@ -1710,6 +2066,7 @@ Hooks.on("renderActorDirectory", (app, html, data) => {
 			bc = new BuildCharacter();
 			BuildCharacter.itemData = null;
 			await bc.readItemData();
+			ui.notifications.notify("Build Character data reloaded");
 		} catch (msg) {
 			ui.notifications.warn(msg);
 		} finally {
