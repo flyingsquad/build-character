@@ -36,7 +36,7 @@
 						"level": 5
 					},
 					"name": "Darkness",
-					"uuid": "",
+					"uuid": "Compendium.dnd5e.spells.Item.S7VbUetIfVT7B6Eq",
 					"ability": "cha"
 				}
 			]
@@ -617,6 +617,39 @@
 				{"name": "med"}
 			]
 		},
+ 		{
+			"name": "Martial Adept",
+			"features": [
+				{
+					"choose": 2, 
+					"choices": [
+						{"name": "Bait and Switch", "uuid": "Compendium.additional-dnd5e-resources.features.Item.QWhLrwBjLOppKO5V"},
+						{"name": "Ambush", "uuid": "Compendium.additional-dnd5e-resources.features.Item.5d0Qw3q3bxtQQ5ez"},
+						{"name": "Brace", "uuid": "Compendium.additional-dnd5e-resources.features.Item.D9Y1TzR9jfEoEYiG"},
+						{"name": "Commander's Strike", "uuid": "Compendium.additional-dnd5e-resources.features.Item.sShWEmtqJbqR76Dm"},
+						{"name": "Commanding Presence", "uuid": "Compendium.additional-dnd5e-resources.features.Item.OrMmzBfFy7ytDsgA"},
+						{"name": "Disarming Attack", "uuid": "Compendium.additional-dnd5e-resources.features.Item.hJow45V0y1xypqcp"},
+						{"name": "Distracting Strike", "uuid": "Compendium.additional-dnd5e-resources.features.Item.SKJIEL30X7MciUog"},
+						{"name": "Evasive Footwork", "uuid": "Compendium.additional-dnd5e-resources.features.Item.3O2j5klBgwQMbbZv"},
+						{"name": "Feinting Attack", "uuid": "Compendium.additional-dnd5e-resources.features.Item.wNQ7eBbObp3A1aOQ"},
+						{"name": "Goading Attack", "uuid": "Compendium.additional-dnd5e-resources.features.Item.Dup0hHcoGMlHaH5Z"},
+						{"name": "Grappline Strike", "uuid": "Compendium.additional-dnd5e-resources.features.Item.nnrjLxAEiW7txDyk"},
+						{"name": "Lunging Attack", "uuid": "Compendium.additional-dnd5e-resources.features.Item.vlmsln0BfGIpQSyk"},
+						{"name": "Maneuvering Attack", "uuid": "Compendium.additional-dnd5e-resources.features.Item.tQhHSAywWXHBB6wa"},
+						{"name": "Menacing Attack", "uuid": "Compendium.additional-dnd5e-resources.features.Item.VdfSA0ApQkw65nBK"},
+						{"name": "Parry", "uuid": "Compendium.additional-dnd5e-resources.features.Item.gP6x1FuLDaTOzS1Z"},
+						{"name": "Precision Attack", "uuid": "Compendium.additional-dnd5e-resources.features.Item.9QZ19qT9Brt7ukKr"},
+						{"name": "Pushing Attack", "uuid": "Compendium.additional-dnd5e-resources.features.Item.6g0gcRV8WFBGUJeh"},
+						{"name": "Quick Toss", "uuid": "Compendium.additional-dnd5e-resources.features.Item.7IY75NGlN05NJLo0"},
+						{"name": "Rally", "uuid": "Compendium.additional-dnd5e-resources.features.Item.pK6DB9LhCrule8g4"},
+						{"name": "Riposte", "uuid": "Compendium.additional-dnd5e-resources.features.Item.ZSbk7Uhbip8ZjhSj"},
+						{"name": "Sweeping Attack", "uuid": "Compendium.additional-dnd5e-resources.features.Item.Uysov6kuUxP3KMaQ"},
+						{"name": "Tactical Assessment", "uuid": "Compendium.additional-dnd5e-resources.features.Item.RbjRvqBiIKTwsMTK"},
+						{"name": "Trip Attack", "uuid": "Compendium.additional-dnd5e-resources.features.Item.cscaNhkPmAgXRzPl"}
+					]
+				}
+			]
+		},
  		{"name": "Mounted Combatant"},
  		{
 			"name": "Observant",
@@ -625,11 +658,7 @@
 				"choices": ["int", "wis"],
 				"increase": 1,
 				"limit": 20
-			},
-			"passive": [
-				{"skill": "prc", "value": 5},
-				{"skill": "inv", "value": 5}
-			]
+			}
 		},
  		{
 			"name": "Piercer",

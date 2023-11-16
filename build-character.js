@@ -290,7 +290,7 @@ export class BuildCharacter {
 			  content: content,
 			  buttons: {
 				ok: {
-				  label: "OK",
+				  label: "Next",
 				  icon: '<i class="fas fa-angles-right"></i>',
 				  callback: async (html) => {
 					  pickedItems = bc.getChoices(html, items);
@@ -416,7 +416,7 @@ export class BuildCharacter {
 			  content: content,
 			  buttons: {
 				ok: {
-				  label: "OK",
+				  label: "Next",
 				  icon: '<i class="fas fa-angles-right"></i>',
 				  callback: async (html) => {
 					  let chosenItems = bc.getChoices(html, choices);
@@ -881,7 +881,7 @@ export class BuildCharacter {
 			  content: content,
 			  buttons: {
 				ok: {
-				  label: "OK",
+				  label: "Next",
 				  icon: '<i class="fas fa-angles-right"></i>',
 				  callback: async (html) => {
 					  let chosenSkills = bc.getChoices(html, skills);
@@ -1510,7 +1510,7 @@ export class BuildCharacter {
 		  buttons: {
 			next: {
 				icon: '<i class="fas fa-check"></i>',
-				label: "OK",
+				label: "Next",
 				callback: async (html) => {
 					return setAbilities(this, html);
 				},
@@ -1705,7 +1705,7 @@ export class BuildCharacter {
 			  buttons: {
 				next: {
 					icon: '<i class="fas fa-check"></i>',
-					label: "OK",
+					label: "Next",
 					callback: async (html) => { return true; }
 				}
 			  },
@@ -1747,7 +1747,7 @@ export class BuildCharacter {
 		  buttons: {
 			next: {
 				icon: '<i class="fas fa-check"></i>',
-				label: "OK",
+				label: "Next",
 				callback: async (html) => { return true; }
 			}
 		  },

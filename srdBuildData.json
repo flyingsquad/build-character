@@ -164,6 +164,53 @@
 			]
 		},
 		{
+			"name": "Tiefling",
+			"abilities": {
+				"description": "Your Intelligence score increases by 1, and your Charisma score increases by 2.",
+				"Charisma": 2,
+				"Intelligence": 1
+			},
+			"size": "med",
+			"speed": 30,
+			"darkvision": 60,
+			"features": [
+				{"name": "Hellish Resistance", "uuid": "Compendium.dnd5e.races.Item.q71Pe1F8RRtEJt8Q"},
+				{"name": "Infernal Legacy", "uuid": "Compendium.dnd5e.races.Item.wJc88B8OP1y1xzMw"}
+			],
+			"languages": [
+				{"name": "common"},
+				{"name": "Infernal"}
+			],
+			"features": [
+				{"name": "Hellish Resistance", "uuid": "Compendium.dnd5e.races.Item.q71Pe1F8RRtEJt8Q"}
+			],
+			"spells": [
+				{
+					"name": "Thaumaturgy",
+					"uuid": "Compendium.dnd5e.spells.Item.MUO1uYN7JR1hm4dR",
+					"ability": "cha"
+				},
+				{
+					"advancement": {
+						"type": "character",
+						"level": 3
+					},
+					"name": "Hellish Rebuke",
+					"uuid":"Compendium.dnd5e.spells.Item.22dPoeXfaaAv4K3h",
+					"ability": "cha"
+				},
+				{
+					"advancement": {
+						"type": "character",
+						"level": 5
+					},
+					"name": "Darkness",
+					"uuid": "Compendium.dnd5e.spells.Item.S7VbUetIfVT7B6Eq",
+					"ability": "cha"
+				}
+			]
+		},
+		{
 			"name": "Variant Human",
 			"abilities": {
 				"description": "Two different ability scores of your choice increase by 1."
