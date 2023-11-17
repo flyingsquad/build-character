@@ -999,11 +999,7 @@ export class BuildCharacter {
 
 			if (weapon) {
 				await actor.updateEmbeddedDocuments("Item",
-					[
-						{ "_id": weapon.id, "system.consume.target": srcItem._id },
-						{ "_id": weapon.id, "system.consume.type": 'ammo' },
-						{ "_id": weapon.id, "system.consume.amount": 1 }
-					]
+					[ { "_id": weapon.id, "system.consume": {target: srcItem._id, type: 'ammo', amount: 1 }} ]
 				);
 				
 			}
@@ -1577,7 +1573,7 @@ export class BuildCharacter {
 			let obj = this.itemData.classes.find(r => r.name == c.name);
 			if (!obj)
 				obj = this.itemData.subclasses.find(r => r.name == c.name);
-			if (obj.spellprepmode)
+			if (obj?.spellprepmode)
 				if (!modes.includes(obj.spellprepmode))
 					modes.push(obj.spellprepmode);
 		}
