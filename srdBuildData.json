@@ -802,7 +802,10 @@
 					]
 				}
 			]
-		}
+		},
+		{"name": "Brutal Critical", "setflag": {"flag": "dnd5e.meleeCriticalDamageDice", "value": 1}},
+		{"name": "Improved Critical", "setflag": {"flag": "dnd5e.weaponCriticalThreshold", "value": 19}},
+		{"name": "Superior Critical", "setflag": {"flag": "dnd5e.weaponCriticalThreshold", "value": 18}}
 	],
 	"feats": [
 		{"name": "Grappler"}

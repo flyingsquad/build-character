@@ -1145,6 +1145,33 @@ export class BuildCharacter {
 				[{ "_id": srcItem._id, "flags.build-character.passive": passive }]
 			);
 		}
+		
+		async function setFlag(flagData) {
+			let members = flagData.flag.split(/ *\. */);
+			if (members.length < 2)
+				throw new Error(`setflag: improperly formed flag: ${flagData.flag}. Must have at least 2 levels.`);
+			let curValue = "";
+			let obj = actor.flags;
+			for (let i = 0; i < members.length - 1; i++) {
+				if (!obj[members[i]]) {
+					obj = null;
+					break;
+				}
+				obj = obj[members[i]];
+			}
+			if (obj)
+				curValue = obj[members.length - 1];
+
+			if (curValue != flagData.value) {
+				await actor.updateEmbeddedDocuments("Item",
+					[{ "_id": srcItem._id, "flags.build-character.setflag": 
+						{flag: flagData.flag, value: curValue}
+					}]
+				);
+				await actor.update({[`flags.${flagData.flag}`]: flagData.value});
+			}
+			
+		}
 
 		for (const f of features) {
 			if (!f)
@@ -1236,6 +1263,9 @@ export class BuildCharacter {
 				case 'ammo':
 					if (f.obj.ammo)
 						selectAmmoWeapon(f.obj.name, f.obj.ammo);
+					break;
+				case 'setflag':
+					await setFlag(f.obj.setflag);
 					break;
 				default:
 					break;
@@ -1879,6 +1909,9 @@ export class BuildCharacter {
 				item.parent.update({[`system.skills.${passive.skill}.passive`]: curValue - passive.value});
 			}
 			break;
+		case 'setflag':
+			item.parent.update({[`flags.${flags.setflag.flag}`]: flags.setflag.value});
+			break;
 		}
 	}
 	
@@ -1904,6 +1937,7 @@ export class BuildCharacter {
 			if (bc)
 				bc.itemAdded(item);
 		});
+
 		Hooks.on("deleteItem", async function(item, sheet, data) {
 			// Exit immediately if item was created by another user.
 			if (data != game.user.id || !item.parent)
@@ -2000,6 +2034,26 @@ Hooks.once('init', async function () {
 	  default: "",
 	  filePicker: "folder"
 	});
+
+	game.settings.register('build-character', 'defaultportrait', {
+	  name: 'Default Portrait',
+	  hint: 'Path to the default portrait.',
+	  scope: 'client',     // "world" = sync to db, "client" = local storage
+	  config: true,       // false if you dont want it to show in module config
+	  type: String,       // Number, Boolean, String, Object
+	  default: "",
+	  filePicker: "image"
+	});
+	
+	game.settings.register('build-character', 'defaulttoken', {
+	  name: 'Default Portrait',
+	  hint: 'Path to the default token.',
+	  scope: 'client',     // "world" = sync to db, "client" = local storage
+	  config: true,       // false if you dont want it to show in module config
+	  type: String,       // Number, Boolean, String, Object
+	  default: "",
+	  filePicker: "image"
+	});
 	
 });
 
@@ -2071,3 +2125,76 @@ Hooks.on("renderActorDirectory", (app, html, data) => {
 		}
     });
 });
+
+
+export class CreateCharacter extends Application {
+	flexCSS = `<style>
+				.container {
+					display: flex;
+					flex-wrap: nowrap;
+					align-items: center;
+				}
+				.input {
+					flex-grow: 4;
+				}
+				.label {
+					flex-grow: 1;
+				}
+			</style>`;
+
+	async create() {
+		let name = "";
+		let result;
+		result = await Dialog.wait({
+		  title: "Create Character",
+		  content: this.flexCSS + `<div class="container">
+				<label class="label" for="name">Name&nbsp;&nbsp;</label>
+				<input class="input" type="text" id="name" name="name" autofocus>
+			</div><br>`,
+		  buttons: {
+			create: {
+			  label: "<b>Create Character</b>",
+			  icon: '<i class="fas fa-angles-right"></i>',
+			  callback: async (html) => {
+				  name = html.find("#name").val();
+				  return true;
+			  },
+			},
+			cancel: {
+				label: "Cancel",
+				callback: (html) => { return false; }
+			},
+		  },
+		  default: "create",
+		  render: (html) => {
+			  html.find("#name").focus();
+			}
+		});
+
+		if (!result || !name)
+			return false;
+		
+		let actor = await Actor.create({
+		  name: name,
+		  type: "character",
+		  img: game.settings.get('build-character', 'defaultportrait')
+		});
+
+		await actor.update({
+				"prototypeToken.texture.src": game.settings.get('build-character', 'defaulttoken'),
+				"prototypeToken.name": actor.name,
+				"prototypeToken.texture.scaleX": 0.8,
+				"prototypeToken.texture.scaleY": 0.8
+			});
+
+		actor.sheet.render(true)
+	}
+
+}
+
+Hooks.once('init', async function () {
+	if (!game.BuildCharacter) {
+		game.BuildCharacter = {};
+		game.BuildCharacter.cc = new CreateCharacter();
+	}
+})
