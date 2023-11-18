@@ -1994,6 +1994,7 @@ Hooks.once('init', async function () {
 	  hint: 'Contains base definitions for items from the SRD.',
 	  config: true,
 	  type: String,
+	  onChange: value => { BuildCharacter.itemData = null; },
 	  filePicker: true,
 	  default: "modules/build-character/srdBuildData.json",
 	});
@@ -2003,24 +2004,29 @@ Hooks.once('init', async function () {
 	  hint: 'Definitions for any custom data, such as PHB or homebrew items.',
 	  config: true,
 	  type: String,
+	  onChange: value => {
+		  BuildCharacter.itemData = null;
+	  },
 	  filePicker: true,
 	  default: "modules/build-character/phbBuildData.json"
 	});
 
 	game.settings.register('build-character', 'worlddata', {
 	  name: 'World Data File',
-	  hint: 'Definitions for world data. Specify exclusions in this file to exclude items from the SRD.',
+	  hint: 'Definitions for world data.',
 	  config: true,
 	  type: String,
+	  onChange: value => { BuildCharacter.itemData = null; },
 	  filePicker: true,
 	  default: ""
 	});
 
 	game.settings.register('build-character', 'auxdata', {
 	  name: 'Auxiliary Data File',
-	  hint: 'Definitions for any other auxiliary items. Specify exclusions in this file to exclude items from the SRD.',
+	  hint: 'Definitions for any other auxiliary items.',
 	  config: true,
 	  type: String,
+	  onChange: value => { BuildCharacter.itemData = null; },
 	  filePicker: true,
 	  default: ""
 	});
