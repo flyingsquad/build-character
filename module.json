@@ -14,8 +14,21 @@
   "esmodules": [
     "build-character.js"
   ],
-  "version": "1.1.7",
-  "download": "https://github.com/flyingsquad/build-character/archive/refs/tags/v1.1.7.zip",
+  "version": "1.1.8",
+  "download": "https://github.com/flyingsquad/build-character/archive/refs/tags/v1.1.8.zip",
   "url": "https://github.com/flyingsquad/build-character",
-  "manifest": "https://raw.githubusercontent.com/flyingsquad/build-character/main/module.json"
+  "manifest": "https://raw.githubusercontent.com/flyingsquad/build-character/main/module.json",
+  "packs": [
+    {
+      "name": "macros",
+      "label": "Build Character Macros",
+      "path": "packs/macros",
+      "type": "Macro",
+      "system": "dnd5e",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      }
+    }
+  ]
 }
