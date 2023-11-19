@@ -429,9 +429,6 @@
 			"saves": [
 				"Strength", "Constitution"
 			],
-			"languages": [
-				{"choose": 1}
-			],
 			"armor": [
 				{"name": "lgt"},
 				{"name": "med"},
