@@ -1,5 +1,5 @@
 {
-	"categories": ["feat-class", "feats", "features", "consumable"],
+	"categories": ["feat-class", "feat-race", "feats", "features", "consumable"],
 	"races": [
 		{
 			"name": "Dragonborn",
@@ -803,6 +803,9 @@
 		{"name": "Brutal Critical", "setflag": {"flag": "dnd5e.meleeCriticalDamageDice", "value": 1}},
 		{"name": "Improved Critical", "setflag": {"flag": "dnd5e.weaponCriticalThreshold", "value": 19}},
 		{"name": "Superior Critical", "setflag": {"flag": "dnd5e.weaponCriticalThreshold", "value": 18}}
+	],
+	"feat-race": [
+		{"name": "Savage Attacks", "setflag": {"flag": "dnd5e.meleeCriticalDamageDice", "value": 1}}
 	],
 	"feats": [
 		{"name": "Grappler"}
