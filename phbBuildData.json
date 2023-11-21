@@ -1,5 +1,5 @@
 {
-	"categories": ["feats"],
+	"categories": ["feats", "features"],
 
 	"subraces": [
 		{
@@ -98,6 +98,14 @@
 			]
 		}
 		
+	],
+	"features": [
+		{
+			"name": "Totem Spirit: Bear",
+			"features": [
+				{"name": "Bear Rage", "uuid": "Compendium.additional-dnd5e-resources.features.Item.LQIEVSEj8M6uHvrm"}
+			]
+		}
 	],
 	"backgrounds": [
 		{

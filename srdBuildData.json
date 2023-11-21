@@ -312,7 +312,16 @@
 			"weapons": [
 				{"name": "mar"},
 				{"name": "sim"}
-			]
+			],
+			"multiclass": {
+				"armor": [
+					{"name": "shl"}
+				],
+				"weapons": [
+					{"name": "mar"},
+					{"name": "sim"}
+				]
+			}
 		},
 		{
 			"name": "Bard",
@@ -345,6 +354,17 @@
 			"tools": [
 				{"choose": 3, "category": ["music"]}
 			],
+			"multiclass": {
+				"armor": [
+					{"name": "lgt"}
+				],
+				"skills": [
+					{"choose": 1}
+				],
+				"tools": [
+					{"choose": 1, "category": ["music"]}
+				]
+			},
 			"weapons": [
 				{"name": "handcrossbow"},
 				{"name": "longsword"},
@@ -371,6 +391,13 @@
 			"weapons": [
 				{"name": "sim"}
 			],
+			"multiclass": {
+				"armor": [
+					{"name": "lgt"},
+					{"name": "med"},
+					{"name": "shl"}
+				]				
+			},
 			"spells": [
 				{
 					"choose": 3,
@@ -412,6 +439,13 @@
 				{"name": "sling"},
 				{"name": "spear"}
 			],
+			"multiclass": {
+				"armor": [
+					{"name": "lgt"},
+					{"name": "med"},
+					{"name": "shl"}
+				]				
+			},
 			"spells": [
 				{
 					"choose": 2,
@@ -438,7 +472,18 @@
 			"weapons": [
 				{"name": "sim"},
 				{"name": "mar"}
-			]
+			],
+			"multiclass": {
+				"armor": [
+					{"name": "lgt"},
+					{"name": "med"},
+					{"name": "shl"}
+				],
+				"weapons": [
+					{"name": "sim"},
+					{"name": "mar"}
+				]
+			}
 		},
 		{
 			"name": "Monk",
@@ -456,7 +501,13 @@
 			"weapons": [
 				{"name": "sim"},
 				{"name": "shortsword"}
-			]
+			],
+			"multiclass": {
+				"weapons": [
+					{"name": "sim"},
+					{"name": "shortsword"}
+				]
+			}
 		},
 		{
 			"name": "Paladin",
@@ -477,7 +528,18 @@
 			"weapons": [
 				{"name": "sim"},
 				{"name": "mar"}
-			]
+			],
+			"multiclass": {
+				"armor": [
+					{"name": "lgt"},
+					{"name": "med"},
+					{"name": "shl"}
+				],
+				"weapons": [
+					{"name": "sim"},
+					{"name": "mar"}
+				]
+			}
 		},
 		{
 			"name": "Ranger",
@@ -498,6 +560,20 @@
 				{"name": "sim"},
 				{"name": "mar"}
 			],
+			"multiclass": {
+				"armor": [
+					{"name": "lgt"},
+					{"name": "med"},
+					{"name": "shl"}
+				],
+				"weapons": [
+					{"name": "sim"},
+					{"name": "mar"}
+				],
+				"skills": [
+					{"choose": 1, "options": ["ani", "ath", "ins", "inv", "nat", "prc", "ste", "sur"]}
+				]
+			},
 			"spells": [
 				{
 					"choose": 2,
@@ -522,6 +598,17 @@
 			"tools": [
 				{"name": "thief"}
 			],
+			"multiclass": {
+				"armor": [
+					{"name": "lgt"}
+				],
+				"tools": [
+					{"name": "thief"}
+				],
+				"skills": [
+					{"choose": 1, "options": ["acr", "ath", "dec", "ins", "itm", "inv", "prc", "prf", "per", "slt", "ste"]}
+				]
+			},
 			"weapons": [
 				{"name": "sim"},
 				{"name": "handcrossbow"},
@@ -549,6 +636,7 @@
 				{"name": "quarterstaff"},
 				{"name": "lightcrossbow"}
 			],
+			"multiclass": {},
 			"spells": [
 				{
 					"choose": 4,
@@ -581,6 +669,14 @@
 			"weapons": [
 				{"name": "sim"}
 			],
+			"multiclass": {
+				"armor": [
+					{"name": "lgt"}
+				],
+				"weapons": [
+					{"name": "sim"}
+				]
+			},
 			"spells": [
 				{
 					"choose": 2,
@@ -628,7 +724,8 @@
 				{"name": "dart"},
 				{"name": "quarterstaff"},
 				{"name": "lightcrossbow"}
-			]
+			],
+			"multiclass": {}
 		}
 	],
 	"subclasses": [

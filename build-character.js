@@ -782,7 +782,7 @@ export class BuildCharacter {
 			);
 		}
 
-		async function chooseSkills(item, actor, f) {
+		async function chooseSkills(item, actor, f, skills) {
 			// Get the granted skills.
 			let updateName = false;
 			let grantedSkills = [];
@@ -793,7 +793,7 @@ export class BuildCharacter {
 					grantedSkills.push(s);
 			}
 
-			for (const skill of f.obj.skills) {
+			for (const skill of skills) {
 				if (skill.name != undefined) {
 					// Add this skill to the list granted, but if it's already
 					// granted by some other feature, allow the user to pick a
@@ -1172,7 +1172,7 @@ export class BuildCharacter {
 			}
 			
 		}
-
+		
 		for (const f of features) {
 			if (!f)
 				continue;
@@ -1180,7 +1180,29 @@ export class BuildCharacter {
 			try {
 				for (let task in f.obj) switch (task) {
 				case 'skills':
-					await chooseSkills(srcItem, actor, f);
+					if (!f.obj.multiclass || actor.system.details.level <= 1)
+						await chooseSkills(srcItem, actor, f, f.obj.skills);
+					break;
+				case 'multiclass':
+					for (let prof in f.obj.multiclass) {
+						switch (prof) {
+						case 'armor':
+							await addProfs(f.obj.name, f.obj.multiclass.armor, "armorProf");
+							break;
+						case 'skills':
+							await chooseSkills(srcItem, actor, f, f.obj.multiclass.skills);
+							break;
+						case 'weapons':
+							await addProfs(f.obj.name, f.obj.multiclass.weapons, "weaponProf");
+							break;
+						case 'tools':
+							await addTools(f.obj.multiclass.tools);
+							break;
+						case 'languages':
+							await addProfs(f.obj.name, f.obj.multiclass.languages, "languages");
+							break
+						}
+					}
 					break;
 				case 'spells':
 					await chooseSpells(srcItem, actor, f);
@@ -1240,16 +1262,20 @@ export class BuildCharacter {
 						actor.update({"system.attributes.spellcasting": f.obj.spellcasting});
 					break;
 				case 'armor':
-					await addProfs(f.obj.name, f.obj.armor, "armorProf");
+					if (!f.obj.multiclass || actor.system.details.level <= 1)
+						await addProfs(f.obj.name, f.obj.armor, "armorProf");
 					break;
 				case 'weapons':
-					await addProfs(f.obj.name, f.obj.weapons, "weaponProf");
+					if (!f.obj.multiclass || actor.system.details.level <= 1)
+						await addProfs(f.obj.name, f.obj.weapons, "weaponProf");
 					break;
 				case 'languages':
-					await addProfs(f.obj.name, f.obj.languages, "languages");
+					if (!f.obj.multiclass || actor.system.details.level <= 1)
+						await addProfs(f.obj.name, f.obj.languages, "languages");
 					break;
 				case 'tools':
-					await addTools(f.obj.tools);
+					if (!f.obj.multiclass || actor.system.details.level <= 1)
+						await addTools(f.obj.tools);
 					break;
 				case 'abilityinc':
 					await abilityIncrease(f.obj.name, f.obj.abilityinc);
