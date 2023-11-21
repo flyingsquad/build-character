@@ -809,13 +809,15 @@
 		{
 			"class": "cleric",
 			"spells": [
-				"Guidance", "Resistance", "Sacred Flame", "Spare the Dying", "Thaumaturgy", "Light", "Mending"
+				"Guidance", "Resistance", "Sacred Flame", "Spare the Dying", "Thaumaturgy", "Light", "Mending",
+				"Bane", "Bless", "Ceremony", "Command", "Create or Destroy Water", "Cure Wounds", "Detect Evil and Good", "Detect Magic", "Detect Poison and Disease", "Guiding Bolt", "Healing Word", "Inflict Wounds", "Protection from Evil and Good", "Purify Food and Drink", "Sanctuary", "Shield of Faith"
 			]
 		},
 		{
 			"class": "druid",
 			"spells": [
-				"Druidcraft", "Guidance", "Mending", "Poison Spray", "Produce Flame", "Resistance", "Shillelagh", "Thorn Whip"
+				"Druidcraft", "Guidance", "Mending", "Poison Spray", "Produce Flame", "Resistance", "Shillelagh", "Thorn Whip",
+				"Absorb Elements", "Animal Friendship", "Beast Bond", "Charm Person", "Create or Destroy Water", "Cure Wounds", "Detect Magic", "Detect Poison and Disease", "Earth Tremor", "Entangle", "Faerie Fire", "Fog Cloud", "Goodberry", "Healing Word", "Ice Knife", "Jump", "Longstrider", "Protection from Evil and Good", "Purify Food and Drink", "Snare", "Speak with Animals", "Thunderwave"
 			]
 		},
 		{
@@ -899,7 +901,16 @@
 		},
 		{"name": "Brutal Critical", "setflag": {"flag": "dnd5e.meleeCriticalDamageDice", "value": 1}},
 		{"name": "Improved Critical", "setflag": {"flag": "dnd5e.weaponCriticalThreshold", "value": 19}},
-		{"name": "Superior Critical", "setflag": {"flag": "dnd5e.weaponCriticalThreshold", "value": 18}}
+		{"name": "Superior Critical", "setflag": {"flag": "dnd5e.weaponCriticalThreshold", "value": 18}},
+		{
+			"name": "Invocation: Book of Ancient Secrets",
+			"appendname": " (ritual only)",
+			"spells": [
+				{
+					"choose": 2, "level": 1, "prompt": "Pick two spells that have the Ritual tag."
+				}
+			]
+		}
 	],
 	"feat-race": [
 		{"name": "Savage Attacks", "setflag": {"flag": "dnd5e.meleeCriticalDamageDice", "value": 1}}

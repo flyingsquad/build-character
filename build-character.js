@@ -933,6 +933,8 @@ export class BuildCharacter {
 						const item = await fromUuid(s.uuid);
 						if (item) {
 							let itemData = item.toObject();
+							if (f.obj.appendname)
+								item.name += f.obj.appendname;
 							setSpellData(itemData, s);
 							let added = await actor.createEmbeddedDocuments("Item", [itemData]);
 							addedSpells = addedSpells.concat(added);
@@ -1125,6 +1127,8 @@ export class BuildCharacter {
 					const item = await fromUuid(s.uuid);
 					if (item) {
 						let itemData = item.toObject();
+						if (feature.obj.appendname)
+							itemData.name += feature.obj.appendname;
 						setSpellData(itemData, s);
 						addedSpells = addedSpells.concat(await actor.createEmbeddedDocuments("Item", [itemData]));
 					} else {
@@ -1173,6 +1177,74 @@ export class BuildCharacter {
 			
 		}
 		
+		async function grantSpells(f) {
+			let classes = [];
+			let casterClass = null;
+
+			for (let it of f.obj.grantspells.classes)
+				classes.push(it);
+			if (classes.length == 0)
+				return;
+
+			if (classes.length == 1) {
+				casterClass = classes[0];
+			} else {
+				prompt = `Choose the spellcasting class for ${f.name}.`;
+				let content = bc.choiceContent(classes, 1, prompt);
+
+				let result = await doDialog({
+					title: `Choose Class for ${f.name}`,
+					content: content,
+					buttons: {
+						next: {
+							label: "Next",
+							icon: '<i class="fas fa-angles-right"></i>',
+							callback: async (html) => {
+								let chosenItems = bc.getChoices(html, classes);
+								if (chosenItems.length > 0)
+									casterClass = chosenItems[0];
+								return true;
+							}
+						},
+						cancel: {
+							label: "Cancel",
+							callback: (html) => { return false; }
+						}
+					},
+					default: "next",
+					close: () => { return false; },
+					render: (html) => { bc.handleChoiceRender(bc, html); }
+				});
+				if (!result)
+					throw 'cancel';
+			}
+
+			let tempObj = {};
+			tempObj.name = f.name;
+			tempObj.obj = {};
+			tempObj.obj.name = f.obj.name;
+			tempObj.obj.spells = [];
+			for (let s of f.obj.grantspells.spells) {
+				let newSpell = Object.assign({}, s);
+				for (let prop in newSpell) {
+					switch (prop) {
+					case 'class':
+						newSpell.class = casterClass.class;
+						break;
+					case 'ability':
+						newSpell.ability = casterClass.ability;
+						break;
+					}
+				}
+				tempObj.obj.spells.push(newSpell);
+			}
+
+			await chooseSpells(srcItem, actor, tempObj);
+			if (f.obj.grantspells.updatename)
+				await appendChoice(srcItem, casterClass.name);
+			
+		}
+		
 		for (const f of features) {
 			if (!f)
 				continue;
@@ -1206,6 +1278,9 @@ export class BuildCharacter {
 					break;
 				case 'spells':
 					await chooseSpells(srcItem, actor, f);
+					break;
+				case 'grantspells':
+					await grantSpells(f);
 					break;
 				case 'features':
 					await this.addFeatures(srcItem, actor, f);				

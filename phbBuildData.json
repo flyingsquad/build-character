@@ -103,7 +103,7 @@
 		{
 			"name": "Totem Spirit: Bear",
 			"features": [
-				{"name": "Bear Rage", "uuid": "Compendium.additional-dnd5e-resources.features.Item.LQIEVSEj8M6uHvrm"}
+				{"name": "Rage (Bear Totem)", "uuid": "Compendium.additional-dnd5e-resources.features.Item.LQIEVSEj8M6uHvrm"}
 			]
 		}
 	],
@@ -448,7 +448,8 @@
 		{
 			"class": "artificer",
 			"spells": [
-				"Acid Splash", "Booming Blade", "Create Bonfire", "Dancing Lights", "Fire Bolt", "Frostbite", "Green-Flame Blade", "Guidance", "Light", "Lightning Lure", "Mage Hand", "Magic Stone", "Mending", "Message", "Poison Spray", "Prestidigitation", "Ray of Frost", "Resistance", "Shocking Grasp", "Spare the Dying", "Sword Burst", "Thorn Whip", "Thunderclap"
+				"Acid Splash", "Booming Blade", "Create Bonfire", "Dancing Lights", "Fire Bolt", "Frostbite", "Green-Flame Blade", "Guidance", "Light", "Lightning Lure", "Mage Hand", "Magic Stone", "Mending", "Message", "Poison Spray", "Prestidigitation", "Ray of Frost", "Resistance", "Shocking Grasp", "Spare the Dying", "Sword Burst", "Thorn Whip", "Thunderclap",
+				"Absorb Elements", "Alarm", "Catapult", "Cure Wounds", "Detect Magic", "Disguise Self", "Expeditious Retreat", "Faerie Fire", "False Life", "Feather Fall", "Grease", "Identify", "Jump", "Longstrider", "Purify Food and Drink", "Sanctuary", "Snare", "Tasha's Caustic Brew"
 			]
 		},
 		{
@@ -612,7 +613,37 @@
 		},
  		{"name": "Lucky"},
  		{"name": "Mage Slayer"},
- 		{"name": "Magic Initiate"},
+ 		{
+			"name": "Magic Initiate", 
+			"grantspells": {
+				"updatename": true,
+				"classes": [
+					{"name": "Bard", "class": "bard", "ability": "cha"},
+					{"name": "Cleric", "class": "cleric", "ability": "wis"},
+					{"name": "Druid", "class": "druid", "ability": "wis"},
+					{"name": "Sorcerer", "class": "sorcerer", "ability": "cha"},
+					{"name": "Warlock", "class": "warlock", "ability": "cha"},
+					{"name": "Artificer", "class": "artificer", "ability": "int"},
+					{"name": "Wizard", "class": "wizard", "ability": "int"}
+				],
+				"spells": [
+					{
+						"choose": 2,
+						"level": "cantrip",
+						"class": null,
+						"ability": null
+					},
+					{
+						"choose": 1,
+						"level": 1,
+						"class": null,
+						"ability": null,
+						"preparation": "innate",
+						"uses": {"value": 1, "max": 1, "per": "lr"}
+					}
+				]
+			}
+		},
  		{
 			"name": "Moderately Armored",
 			"abilityinc": {
