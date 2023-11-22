@@ -1007,6 +1007,15 @@ export class BuildCharacter {
 			}
 		}
 		
+		async function setConsume(consume) {
+			let item = actor.items.find(it => it.name == consume?.target);
+			if (item) {
+				await actor.updateEmbeddedDocuments("Item",
+					[ { "_id": srcItem.id, "system.consume": {target: item._id, type: consume.type, amount: consume.amount }} ]
+				);
+			}
+		}
+		
 		async function pickSpells(actor, feature, s) {
 			let spells = [];
 
@@ -1372,6 +1381,9 @@ export class BuildCharacter {
 					case 'ammo':
 						if (f.obj.ammo)
 							selectAmmoWeapon(f.obj.name, f.obj.ammo);
+						break;
+					case 'consume':
+						setConsume(f.obj.consume);
 						break;
 					case 'setflag':
 						await setFlag(f.obj.setflag);
@@ -1809,6 +1821,10 @@ export class BuildCharacter {
 					let listName = 'feat-' + item.system.type.value;
 					if (this.itemData[listName])
 						obj = this.itemData[listName].find(r => item.name == r.name);
+					if (!obj) {
+						const subtype = 'subtype-' + item.system.type.subtype;
+						obj = this.itemData[listName].find(r => r.name == subtype);
+					}
 				}
 				break;
 			}

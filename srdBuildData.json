@@ -953,6 +953,22 @@
 					"choose": 2, "level": 1, "prompt": "Pick two spells that have the Ritual tag."
 				}
 			]
+		},
+		{
+			"name": "subtype-metamagic",
+			"consume": {
+				"amount": 1,
+				"type": "charges",
+				"target": "Font of Magic"
+			}
+		},
+		{
+			"name": "Metamagic: Quickened Spell",
+			"consume": {
+				"amount": 2,
+				"type": "charges",
+				"target": "Font of Magic"
+			}
 		}
 	],
 	"feat-race": [
