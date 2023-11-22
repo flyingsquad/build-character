@@ -1248,128 +1248,137 @@ export class BuildCharacter {
 		for (const f of features) {
 			if (!f)
 				continue;
-
 			try {
-				for (let task in f.obj) switch (task) {
-				case 'skills':
-					if (!f.obj.multiclass || actor.system.details.level <= 1)
-						await chooseSkills(srcItem, actor, f, f.obj.skills);
-					break;
-				case 'multiclass':
-					for (let prof in f.obj.multiclass) {
-						switch (prof) {
-						case 'armor':
-							await addProfs(f.obj.name, f.obj.multiclass.armor, "armorProf");
-							break;
-						case 'skills':
-							await chooseSkills(srcItem, actor, f, f.obj.multiclass.skills);
-							break;
-						case 'weapons':
-							await addProfs(f.obj.name, f.obj.multiclass.weapons, "weaponProf");
-							break;
-						case 'tools':
-							await addTools(f.obj.multiclass.tools);
-							break;
-						case 'languages':
-							await addProfs(f.obj.name, f.obj.multiclass.languages, "languages");
-							break
-						}
-					}
-					break;
-				case 'spells':
-					await chooseSpells(srcItem, actor, f);
-					break;
-				case 'grantspells':
-					await grantSpells(f);
-					break;
-				case 'features':
-					await this.addFeatures(srcItem, actor, f);				
-					break;
-				case 'saves':
-					if (actor.system.details.level <= 1) {
-						// Only the first class gets saving throw proficiencies.
-						let saves = [];
-						for (const save of f.obj.saves) {
-							saves.push(this.abilityNames[save]);
-							actor.update({[`data.abilities.${this.abilityNames[save]}.proficient`]: 1});
-						}
-						actor.updateEmbeddedDocuments("Item",
-							[{ "_id": srcItem._id, "flags.build-character.saves": saves }]
-						);
-					}
-					break;
-				case 'darkvision':
-					if (actor.system.attributes.senses.darkvision < f.obj.darkvision) {
-						await actor.updateEmbeddedDocuments("Item",
-							[{ "_id": srcItem._id, "flags.build-character.darkvision": actor.system.attributes.senses.darkvision }]
-						);
-						actor.update({"data.attributes.senses.darkvision": f.obj.darkvision});
-						actor.update({"prototypeToken.sight.range": f.obj.darkvision});
-					}
-					break;
-				case 'hplevel':
-					let hpbonus = Number(actor.system.attributes.hp.bonuses.level) + f.obj.hplevel;
-					await actor.update({"system.attributes.hp.bonuses.level": hpbonus});
-					await actor.updateEmbeddedDocuments("Item",
-						[{ "_id": srcItem._id, "flags.build-character.hplevel": f.obj.hplevel }]
-					);
-					break;
-				case 'size':
-					if (actor.system.traits.size != f.obj.size) {
-						await actor.updateEmbeddedDocuments("Item",
-							[{ "_id": srcItem._id, "flags.build-character.size": actor.system.traits.size }]
-						);
-						actor.update({"data.traits.size": f.obj.size});
-					}
-					break;
-				case 'speed':
-					if (actor.system.attributes.movement.walk != f.obj.speed) {
-						await actor.updateEmbeddedDocuments("Item",
-							[{ "_id": srcItem._id, "flags.build-character.speed": actor.system.attributes.movement.walk }]
-						);
-						actor.update({"data.attributes.movement.walk": f.obj.speed});
-					}
-					break;
+				let stop = false;
+				for (let task in f.obj) {
 
-				case 'spellcasting':
-					// Only set the spellcasting ability for the first class.
-					if (actor.items.filter(it => it.type == 'class' && it.system?.spellcasting?.ability).length <= 1)
-						actor.update({"system.attributes.spellcasting": f.obj.spellcasting});
-					break;
-				case 'armor':
-					if (!f.obj.multiclass || actor.system.details.level <= 1)
-						await addProfs(f.obj.name, f.obj.armor, "armorProf");
-					break;
-				case 'weapons':
-					if (!f.obj.multiclass || actor.system.details.level <= 1)
-						await addProfs(f.obj.name, f.obj.weapons, "weaponProf");
-					break;
-				case 'languages':
-					if (!f.obj.multiclass || actor.system.details.level <= 1)
-						await addProfs(f.obj.name, f.obj.languages, "languages");
-					break;
-				case 'tools':
-					if (!f.obj.multiclass || actor.system.details.level <= 1)
-						await addTools(f.obj.tools);
-					break;
-				case 'abilityinc':
-					await abilityIncrease(f.obj.name, f.obj.abilityinc);
-					break;
-				case 'expertise':
-					await selectExpertise(f.obj.name, f.obj.expertise);
-					break;
-				case 'passive':
-					await addPassive(f.obj.passive);
-					break;
-				case 'ammo':
-					if (f.obj.ammo)
-						selectAmmoWeapon(f.obj.name, f.obj.ammo);
-					break;
-				case 'setflag':
-					await setFlag(f.obj.setflag);
-					break;
-				default:
-					break;
+					if (stop)
+						break;
+
+					switch (task) {
+					case 'skipifnewer':
+						stop = foundry.utils.isNewerVersion(game.system.version, f.obj.skipifnewer);
+						break;
+					case 'skills':
+						if (!f.obj.multiclass || actor.system.details.level <= 1)
+							await chooseSkills(srcItem, actor, f, f.obj.skills);
+						break;
+					case 'multiclass':
+						for (let prof in f.obj.multiclass) {
+							switch (prof) {
+							case 'armor':
+								await addProfs(f.obj.name, f.obj.multiclass.armor, "armorProf");
+								break;
+							case 'skills':
+								await chooseSkills(srcItem, actor, f, f.obj.multiclass.skills);
+								break;
+							case 'weapons':
+								await addProfs(f.obj.name, f.obj.multiclass.weapons, "weaponProf");
+								break;
+							case 'tools':
+								await addTools(f.obj.multiclass.tools);
+								break;
+							case 'languages':
+								await addProfs(f.obj.name, f.obj.multiclass.languages, "languages");
+								break
+							}
+						}
+						break;
+					case 'spells':
+						await chooseSpells(srcItem, actor, f);
+						break;
+					case 'grantspells':
+						await grantSpells(f);
+						break;
+					case 'features':
+						await this.addFeatures(srcItem, actor, f);				
+						break;
+					case 'saves':
+						if (actor.system.details.level <= 1) {
+							// Only the first class gets saving throw proficiencies.
+							let saves = [];
+							for (const save of f.obj.saves) {
+								saves.push(this.abilityNames[save]);
+								actor.update({[`data.abilities.${this.abilityNames[save]}.proficient`]: 1});
+							}
+							actor.updateEmbeddedDocuments("Item",
+								[{ "_id": srcItem._id, "flags.build-character.saves": saves }]
+							);
+						}
+						break;
+					case 'darkvision':
+						if (actor.system.attributes.senses.darkvision < f.obj.darkvision) {
+							await actor.updateEmbeddedDocuments("Item",
+								[{ "_id": srcItem._id, "flags.build-character.darkvision": actor.system.attributes.senses.darkvision }]
+							);
+							actor.update({"data.attributes.senses.darkvision": f.obj.darkvision});
+							actor.update({"prototypeToken.sight.range": f.obj.darkvision});
+						}
+						break;
+					case 'hplevel':
+						let hpbonus = Number(actor.system.attributes.hp.bonuses.level) + f.obj.hplevel;
+						await actor.update({"system.attributes.hp.bonuses.level": hpbonus});
+						await actor.updateEmbeddedDocuments("Item",
+							[{ "_id": srcItem._id, "flags.build-character.hplevel": f.obj.hplevel }]
+						);
+						break;
+					case 'size':
+						if (actor.system.traits.size != f.obj.size) {
+							await actor.updateEmbeddedDocuments("Item",
+								[{ "_id": srcItem._id, "flags.build-character.size": actor.system.traits.size }]
+							);
+							actor.update({"data.traits.size": f.obj.size});
+						}
+						break;
+					case 'speed':
+						if (actor.system.attributes.movement.walk != f.obj.speed) {
+							await actor.updateEmbeddedDocuments("Item",
+								[{ "_id": srcItem._id, "flags.build-character.speed": actor.system.attributes.movement.walk }]
+							);
+							actor.update({"data.attributes.movement.walk": f.obj.speed});
+						}
+						break;
+
+					case 'spellcasting':
+						// Only set the spellcasting ability for the first class.
+						if (actor.items.filter(it => it.type == 'class' && it.system?.spellcasting?.ability).length <= 1)
+							actor.update({"system.attributes.spellcasting": f.obj.spellcasting});
+						break;
+					case 'armor':
+						if (!f.obj.multiclass || actor.system.details.level <= 1)
+							await addProfs(f.obj.name, f.obj.armor, "armorProf");
+						break;
+					case 'weapons':
+						if (!f.obj.multiclass || actor.system.details.level <= 1)
+							await addProfs(f.obj.name, f.obj.weapons, "weaponProf");
+						break;
+					case 'languages':
+						if (!f.obj.multiclass || actor.system.details.level <= 1)
+							await addProfs(f.obj.name, f.obj.languages, "languages");
+						break;
+					case 'tools':
+						if (!f.obj.multiclass || actor.system.details.level <= 1)
+							await addTools(f.obj.tools);
+						break;
+					case 'abilityinc':
+						await abilityIncrease(f.obj.name, f.obj.abilityinc);
+						break;
+					case 'expertise':
+						await selectExpertise(f.obj.name, f.obj.expertise);
+						break;
+					case 'passive':
+						await addPassive(f.obj.passive);
+						break;
+					case 'ammo':
+						if (f.obj.ammo)
+							selectAmmoWeapon(f.obj.name, f.obj.ammo);
+						break;
+					case 'setflag':
+						await setFlag(f.obj.setflag);
+						break;
+					default:
+						break;
+					}
 				}
 			} catch (msg) {
 				if (msg !== 'cancel')
@@ -1506,7 +1515,34 @@ export class BuildCharacter {
 		this.racialBonus.Wisdom = 0;
 		this.racialBonus.Charisma = 0;
 		
-		if (!race) {
+		let choose = "";
+		let r = actor.items.find(it => it.type == 'race');
+		if (r) {
+			race = {name: r.name, obj: r};
+			let asi = r.advancement.byLevel[0].find(entry => entry.type == 'AbilityScoreImprovement');
+			if (!asi) {
+				await Dialog.prompt({
+				  title: "Select Abilities: No Ability Improvement Found",
+				  content: `There is no data available for determining ability improvement.<br><br>`,
+				  label: "OK",
+				  callback: (html) => { ; }
+				});
+				return;
+			}
+			choose = `<b>${r.name}</b>: `;
+			let values = [];
+			let abilityKeys = {
+				str: 'Strength', dex: 'Dexterity', con: 'Constitution', int: 'Intelligence', wis: 'Wisdom', cha: 'Charisma'
+			};
+			for (let ability in asi.value.assignments) {
+				const abilityName = abilityKeys[ability];
+				const val = asi.value.assignments[ability];
+				this.racialBonus[abilityName] = val;
+				values.push(`${abilityName}: ${val}`);
+			}
+			choose += ': ' + values.join(', ');
+		
+		} else {
 			// No race passed in, check the character items for race and subrace.
 			for (let item of actor.items) {
 				if (item.type == 'feat') {
@@ -1520,25 +1556,24 @@ export class BuildCharacter {
 					}
 				}
 			}
-		}
+			if (!race) {
+				await Dialog.prompt({
+				  title: "Select Abilities: No Race Found",
+				  content: `There is no race in the Features tab of the character sheet.<br><br>
+					Drag and drop a race and subrace onto the character sheet before selecting abilities.
+					These are needed to determine the racial bonuses for the abilities.<br><br>`,
+				  label: "OK",
+				  callback: (html) => { ; }
+				});
+				return;
+			}
 
-		if (!race) {
-			await Dialog.prompt({
-			  title: "Select Abilities: No Race Found",
-			  content: `There is no race in the Features tab of the character sheet.<br><br>
-				Drag and drop a race and subrace onto the character sheet before selecting abilities.
-				These are needed to determine the racial bonuses for the abilities.<br><br>`,
-			  label: "OK",
-			  callback: (html) => { ; }
-			});
-			return;
-		}
-
-		let choose = this.setAbilityBonuses(race);
-		if (subrace) {
-			let info = this.setAbilityBonuses(subrace);
-			if (info)
-				choose += "<br>" + info;
+			choose = this.setAbilityBonuses(race);
+			if (subrace) {
+				let info = this.setAbilityBonuses(subrace);
+				if (info)
+					choose += "<br>" + info;
+			}
 		}
 
 		let prepend = '';
@@ -1780,6 +1815,9 @@ export class BuildCharacter {
 			break;
 		case 'subclass':
 			obj = this.itemData.subclasses.find(r => item.name == r.name);
+			break;
+		case 'race':
+			obj = this.itemData.races.find(r => item.name == r.name);
 			break;
 		case 'class':
 			// Classes are handled by the advancement complete hook.

@@ -3,6 +3,7 @@
 	"races": [
 		{
 			"name": "Dragonborn",
+			"skipifnewer": "2.3.9",
 			"abilities": {
 				"description": "Your Strength score increases by 2, and your Charisma score increases by 1.",
 				"Strength": 2,
@@ -22,6 +23,7 @@
 		},
 		{
 			"name": "Dwarf",
+			"skipifnewer": "2.3.9",
 			"abilities": {
 				"description": "Your Constitution score increases by 2.",
 				"Constitution": 2
@@ -49,6 +51,7 @@
 		},
 		{
 			"name": "Elf",
+			"skipifnewer": "2.3.9",
 			"abilities": {
 				"description": "Your Dexterity score increases by 2.",
 				"Dexterity": 2
@@ -69,6 +72,7 @@
 		},
 		{
 			"name": "Gnome",
+			"skipifnewer": "2.3.9",
 			"abilities": {
 				"description": "Your Intelligence score increases by 2.",
 				"Intelligence": 2
@@ -86,6 +90,7 @@
 		},
 		{
 			"name": "Half-Elf",
+			"skipifnewer": "2.3.9",
 			"abilities": {
 				"description": "Your Charisma score increases by 2, and two other ability scores of your choice increase by 1. <b>Be sure to enter these values in Racial Bonus for two abilities</b>.",
 				"Charisma": 2
@@ -107,6 +112,7 @@
 		},
 		{
 			"name": "Half-Orc",
+			"skipifnewer": "2.3.9",
 			"abilities": {
 				"description": "Your Strength score increases by 2, and your Constitution score increases by 1.",
 				"Strength": 2,
@@ -129,6 +135,7 @@
 		},
 		{
 			"name": "Halfling",
+			"skipifnewer": "2.3.9",
 			"abilities": {
 				"description": "Your Dexterity score increases by 2.",
 				"Dexterity": 2
@@ -147,6 +154,7 @@
 		},
 		{
 			"name": "Human",
+			"skipifnewer": "2.3.9",
 			"abilities": {
 				"description": "Your ability scores each increase by 1.",
 				"Strength": 1,
@@ -165,6 +173,7 @@
 		},
 		{
 			"name": "Tiefling",
+			"skipifnewer": "2.3.9",
 			"abilities": {
 				"description": "Your Intelligence score increases by 1, and your Charisma score increases by 2.",
 				"Charisma": 2,
@@ -212,6 +221,7 @@
 		},
 		{
 			"name": "Variant Human",
+			"skipifnewer": "2.3.9",
 			"abilities": {
 				"description": "Two different ability scores of your choice increase by 1."
 			},
@@ -222,12 +232,17 @@
 			],
 			"skills": [
 				{"choose": 1}
+			],
+			"languages": [
+				{"name": "common"},
+				{"choose": 1}
 			]
 		}
 	],
 	"subraces": [
 		{
 			"name": "High Elf",
+			"skipifnewer": "2.3.9",
 			"race": "Elf",
 			"abilities": {
 				"description": "Your Intelligence score increases by 1.",
@@ -253,6 +268,7 @@
 		},
 		{
 			"name": "Hill Dwarf",
+			"skipifnewer": "2.3.9",
 			"race": "Dwarf",
 			"abilities": {
 				"description": "Your Wisdom score increases by 1.",
@@ -261,6 +277,7 @@
 		},
 		{
 			"name": "Lightfoot Halfling",
+			"skipifnewer": "2.3.9",
 			"race": "Halfling",
 			"abilities": {
 				"description": "Your Charisma score increases by 1.",
@@ -272,6 +289,7 @@
 		},
 		{
 			"name": "Rock Gnome",
+			"skipifnewer": "2.3.9",
 			"race": "Gnome",
 			"abilities": {
 				"description": "Your Constitution score increases by 1.",
@@ -286,6 +304,7 @@
 	"backgrounds": [
 		{
 			"name": "Acolyte",
+			"skipifnewer": "2.3.9",
 			"skills": [
 				{"name": "ins"},
 				{"name": "rel"}
@@ -298,6 +317,8 @@
 	"classes": [
 		{
 			"name": "Barbarian",
+			"skipifnewer": "2.3.9",
+
 			"skills": [
 				{"choose": 2, "options": ["ani", "ath", "itm", "nat", "per", "sur"]}
 			],
@@ -327,12 +348,6 @@
 			"name": "Bard",
 			"spellcasting": "cha",
 			"spellprepmode": "always",
-			"skills": [
-				{"choose": 3}
-			],
-			"saves": [
-				"Dexterity", "Charisma"
-			],
 			"spells": [
 				{
 					"choose": 2,
@@ -347,6 +362,14 @@
 					"ability": "cha",
 					"preparation": "always"
 				}
+			],
+			"skipifnewer": "2.3.9",
+
+			"skills": [
+				{"choose": 3}
+			],
+			"saves": [
+				"Dexterity", "Charisma"
 			],
 			"armor": [
 				{"name": "lgt"}
@@ -377,6 +400,16 @@
 			"name": "Cleric",
 			"spellcasting": "wis",
 			"spellprepmode": "prepared",
+			"spells": [
+				{
+					"choose": 3,
+					"level": "cantrip",
+					"class": "cleric", 
+					"ability": "wis"
+				}
+			],
+			"skipifnewer": "2.3.9",
+
 			"skills": [
 				{"choose": 2, "options": ["his", "ins", "med", "per", "rel"]}
 			],
@@ -397,20 +430,22 @@
 					{"name": "med"},
 					{"name": "shl"}
 				]				
-			},
-			"spells": [
-				{
-					"choose": 3,
-					"level": "cantrip",
-					"class": "cleric", 
-					"ability": "wis"
-				}
-			]
+			}
 		},
 		{
 			"name": "Druid",
 			"spellcasting": "wis",
 			"spellprepmode": "prepared",
+			"spells": [
+				{
+					"choose": 2,
+					"level": "cantrip",
+					"class": "druid", 
+					"ability": "wis"
+				}
+			],
+			"skipifnewer": "2.3.9",
+
 			"skills": [
 				{"choose": 2, "options": ["arc", "ani", "ins", "med", "nat", "per", "rel", "sur"]}
 			],
@@ -445,18 +480,12 @@
 					{"name": "med"},
 					{"name": "shl"}
 				]				
-			},
-			"spells": [
-				{
-					"choose": 2,
-					"level": "cantrip",
-					"class": "druid", 
-					"ability": "wis"
-				}
-			]			
+			}
 		},
 		{
 			"name": "Fighter",
+			"skipifnewer": "2.3.9",
+
 			"skills": [
 				{"choose": 2, "options": ["acr", "ath", "ani", "his", "ins", "itm", "prc", "sur"]}
 			],
@@ -487,6 +516,8 @@
 		},
 		{
 			"name": "Monk",
+			"skipifnewer": "2.3.9",
+
 			"skills": [
 				{"choose": 2, "options": ["acr", "ath", "his", "ins", "rel", "ste"]}
 			],
@@ -513,6 +544,8 @@
 			"name": "Paladin",
 			"spellcasting": "wis",
 			"spellprepmode": "prepared",
+			"skipifnewer": "2.3.9",
+
 			"skills": [
 				{"choose": 2, "options": ["ath", "ins", "itm", "med", "per", "rel"]}
 			],
@@ -545,6 +578,17 @@
 			"name": "Ranger",
 			"spellcasting": "wis",
 			"spellprepmode": "always",
+			"spells": [
+				{
+					"choose": 2,
+					"level": 1,
+					"class": "ranger",
+					"ability": "wis",
+					"preparation": "always"
+				}
+			],
+			"skipifnewer": "2.3.9",
+			
 			"skills": [
 				{"choose": 3, "options": ["ani", "ath", "ins", "inv", "nat", "prc", "ste", "sur"]}
 			],
@@ -573,19 +617,12 @@
 				"skills": [
 					{"choose": 1, "options": ["ani", "ath", "ins", "inv", "nat", "prc", "ste", "sur"]}
 				]
-			},
-			"spells": [
-				{
-					"choose": 2,
-					"level": 1,
-					"class": "ranger",
-					"ability": "wis",
-					"preparation": "always"
-				}
-			]
+			}
 		},
 		{
 			"name": "Rogue",
+			"skipifnewer": "2.3.9",
+
 			"skills": [
 				{"choose": 4, "options": ["acr", "ath", "dec", "ins", "itm", "inv", "prc", "prf", "per", "slt", "ste"]}
 			],
@@ -621,6 +658,23 @@
 			"name": "Sorcerer",
 			"spellcasting": "cha",
 			"spellprepmode": "always",
+			"spells": [
+				{
+					"choose": 4,
+					"level": "cantrip",
+					"class": "sorcerer", 
+					"ability": "cha"
+				},
+				{
+					"choose": 2,
+					"level": 1,
+					"class": "sorcerer", 
+					"ability": "cha",
+					"preparation": "always"
+				}
+			],
+			"skipifnewer": "2.3.9",
+
 			"skills": [
 				{"choose": 2, "options": ["arc", "dec", "ins", "itm", "per", "rel"]}
 			],
@@ -636,27 +690,29 @@
 				{"name": "quarterstaff"},
 				{"name": "lightcrossbow"}
 			],
-			"multiclass": {},
-			"spells": [
-				{
-					"choose": 4,
-					"level": "cantrip",
-					"class": "sorcerer", 
-					"ability": "cha"
-				},
-				{
-					"choose": 2,
-					"level": 1,
-					"class": "sorcerer", 
-					"ability": "cha",
-					"preparation": "always"
-				}
-			]
+			"multiclass": {}
 		},
 		{
 			"name": "Warlock",
 			"spellcasting": "cha",
 			"spellprepmode": "pact",
+			"spells": [
+				{
+					"choose": 2,
+					"level": "cantrip",
+					"class": "warlock", 
+					"ability": "cha"
+				},
+				{
+					"choose": 2,
+					"level": 1,
+					"class": "warlock", 
+					"ability": "cha",
+					"preparation": "pact"
+				}
+			],
+			"skipifnewer": "2.3.9",
+
 			"skills": [
 				{"choose": 2, "options": ["arc", "dec", "his", "inv", "itm", "nat", "rel"]}
 			],
@@ -676,35 +732,12 @@
 				"weapons": [
 					{"name": "sim"}
 				]
-			},
-			"spells": [
-				{
-					"choose": 2,
-					"level": "cantrip",
-					"class": "warlock", 
-					"ability": "cha"
-				},
-				{
-					"choose": 2,
-					"level": 1,
-					"class": "warlock", 
-					"ability": "cha",
-					"preparation": "pact"
-				}
-			]
+			}
 		},
 		{
 			"name": "Wizard",
 			"spellcasting": "int",
 			"spellprepmode": "prepared",
-			"skills": [
-				{"choose": 2, "options": ["arc", "dec", "his", "inv", "itm", "nat", "rel"]}
-			],
-			"saves": [
-				"Wisdom", "Intelligence"
-			],
-			"armor": [
-			],
 			"spells": [
 				{
 					"choose": 3,
@@ -718,6 +751,16 @@
 					"class": "wizard", 
 					"ability": "int"
 				}
+			],
+			"skipifnewer": "2.3.9",
+
+			"skills": [
+				{"choose": 2, "options": ["arc", "dec", "his", "inv", "itm", "nat", "rel"]}
+			],
+			"saves": [
+				"Wisdom", "Intelligence"
+			],
+			"armor": [
 			],
 			"weapons": [
 				{"name": "dagger"},

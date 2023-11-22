@@ -5,6 +5,8 @@
 		{
 			"name": "Dark Elf",
 			"race": "Elf",
+			"skipifnewer": "2.3.9",
+
 			"abilities": {
 				"description": "Your Charisma score increases by 1.",
 				"Charisma": 1
@@ -44,6 +46,7 @@
 		{
 			"name": "Forest Gnome",
 			"race": "Gnome",
+			"skipifnewer": "2.3.9",
 			"abilities": {
 				"description": "Your Dexterity score increases by 1.",
 				"Dexterity": 1
@@ -59,6 +62,7 @@
 		{
 			"name": "Mountain Dwarf",
 			"race": "Dwarf",
+			"skipifnewer": "2.3.9",
 			"abilities": {
 				"description": "Your Strength score increases by 2.",
 				"Strength": 2
@@ -71,6 +75,7 @@
 		{
 			"name": "Wood Elf",
 			"race": "Elf",
+			"skipifnewer": "2.3.9",
 			"abilities": {
 				"description": "Your Wisdom score increases by 1.",
 				"Wisdom": 1
@@ -89,6 +94,7 @@
 		{
 			"name": "Stout Halfling",
 			"race": "Halfling",
+			"skipifnewer": "2.3.9",
 			"abilities": {
 				"description": "Your Constitution score increases by 1.",
 				"Constitution": 1
@@ -110,6 +116,7 @@
 	"backgrounds": [
 		{
 			"name": "Charlatan",
+			"skipifnewer": "2.3.9",
 			"skills": [
 				{"name": "dec"},
 				{"name": "slt"}
@@ -121,6 +128,7 @@
 		},
 		{
 			"name": "Criminal",
+			"skipifnewer": "2.3.9",
 			"skills": [
 				{"name": "dec"},
 				{"name": "slt"}
@@ -132,6 +140,7 @@
 		},
 		{
 			"name": "Entertainer",
+			"skipifnewer": "2.3.9",
 			"skills": [
 				{"name": "acr"},
 				{"name": "prf"}
@@ -143,6 +152,7 @@
 		},
 		{
 			"name": "Folk Hero",
+			"skipifnewer": "2.3.9",
 			"skills": [
 				{"name": "ani"},
 				{"name": "sur"}
@@ -154,6 +164,7 @@
 		},
 		{
 			"name": "Guild Artisan",
+			"skipifnewer": "2.3.9",
 			"skills": [
 				{"name": "ins"},
 				{"name": "per"}
@@ -167,6 +178,7 @@
 		},
 		{
 			"name": "Guild Merchant",
+			"skipifnewer": "2.3.9",
 			"skills": [
 				{"name": "ins"},
 				{"name": "per"}
@@ -180,6 +192,7 @@
 		},
 		{
 			"name": "Hermit",
+			"skipifnewer": "2.3.9",
 			"skills": [
 				{"name": "med"},
 				{"name": "rel"}
@@ -193,6 +206,7 @@
 		},
 		{
 			"name": "Knight",
+			"skipifnewer": "2.3.9",
 			"skills": [
 				{"name": "his"},
 				{"name": "per"}
@@ -206,6 +220,7 @@
 		},
 		{
 			"name": "Noble",
+			"skipifnewer": "2.3.9",
 			"skills": [
 				{"name": "his"},
 				{"name": "per"}
@@ -219,6 +234,7 @@
 		},
 		{
 			"name": "Outlander",
+			"skipifnewer": "2.3.9",
 			"skills": [
 				{"name": "ath"},
 				{"name": "sur"}
@@ -232,6 +248,7 @@
 		},
 		{
 			"name": "Pirate",
+			"skipifnewer": "2.3.9",
 			"skills": [
 				{"name": "ath"},
 				{"name": "prc"}
@@ -243,6 +260,7 @@
 		},
 		{
 			"name": "Sage",
+			"skipifnewer": "2.3.9",
 			"skills": [
 				{"name": "arc"},
 				{"name": "his"}
@@ -253,6 +271,7 @@
 		},
 		{
 			"name": "Sailor",
+			"skipifnewer": "2.3.9",
 			"skills": [
 				{"name": "ath"},
 				{"name": "prc"}
@@ -264,6 +283,7 @@
 		},
 		{
 			"name": "Soldier",
+			"skipifnewer": "2.3.9",
 			"skills": [
 				{"name": "ath"},
 				{"name": "itm"}
@@ -275,6 +295,7 @@
 		},
 		{
 			"name": "Spy",
+			"skipifnewer": "2.3.9",
 			"skills": [
 				{"name": "dec"},
 				{"name": "ste"}
@@ -286,6 +307,7 @@
 		},
 		{
 			"name": "Urchin",
+			"skipifnewer": "2.3.9",
 			"skills": [
 				{"name": "slt"},
 				{"name": "ste"}
@@ -301,6 +323,16 @@
 			"name": "Artificer",
 			"spellcasting": "int",
 			"spellprepmode": "prepared",
+			"spells": [
+				{
+					"choose": 2,
+					"level": "cantrip",
+					"class": "artificer", 
+					"ability": "int"
+				}
+			],
+			"skipifnewer": "2.3.9",
+
 			"skills": [
 				{"choose": 2, "options": ["arc", "his", "inv", "med", "nat", "prc", "slt"]}
 			],
@@ -319,14 +351,6 @@
 				{"name": "thief"},
 				{"name": "tinker"},
 				{"choose": 1, "category": ["art"]}
-			],
-			"spells": [
-				{
-					"choose": 2,
-					"level": "cantrip",
-					"class": "artificer", 
-					"ability": "int"
-				}
 			]
 		}
 	],
