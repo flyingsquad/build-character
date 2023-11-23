@@ -1,5 +1,5 @@
 {
-	"categories": ["feats", "features"],
+	"categories": ["feats", "features", "feat-class"],
 
 	"subraces": [
 		{
@@ -827,6 +827,17 @@
 			},
 			"weapons": [
 				{"choose": 4}
+			]
+		}
+	],
+	"feat-class": [
+		{
+			"name": "Stone Rune",
+			"features": [
+				{
+					"name": "Stone Rune Charm",
+					"uuid": "Compendium.additional-dnd5e-resources.features.Item.VyBqjy9wHRwS8YLF"
+				}
 			]
 		}
 	]
