@@ -2,7 +2,7 @@
  */
 
 export class BuildCharacter {
-	bcVersion = 1;
+	bcVersion = 2;
 
 	actor = null;
 	dlg = null;
@@ -1755,13 +1755,7 @@ export class BuildCharacter {
 				if (!modes.includes(obj.spellprepmode))
 					modes.push(obj.spellprepmode);
 		}
-		if (modes.length == 0)
-			return;
-
-		if (modes.length != 1)
-			modes = ['prepared'];
-		if (actor.getFlag('build-character', 'spellprepmode') != modes[0])
-			await actor.setFlag('build-character', 'spellprepmode', modes[0]);
+		await actor.setFlag('build-character', 'spellprepmode', modes);
 	}
 
 	async checkVersion(actor) {
@@ -1775,6 +1769,44 @@ export class BuildCharacter {
 			await this.setSpellPrepMode(actor);
 			await actor.setFlag('build-character', 'version', this.bcVersion);
 		}
+	}
+	
+	async getPrepMode(spellName, spellPrepMode) {
+		// Find a weapon in the inventory that takes ammo.
+		let modes = [];
+		for (let mode of spellPrepMode)
+			modes.push({"name": CONFIG.DND5E.spellPreparationModes[mode], "mode": mode});
+		prompt = `Choose the preparation mode for ${spellName}.`;
+		let content = this.choiceContent(modes, 1, prompt);
+
+		let mode = await doDialog({
+			title: `Spell Preparation Mode`,
+			content: content,
+			buttons: {
+				next: {
+					label: "Next",
+					icon: '<i class="fas fa-angles-right"></i>',
+					callback: async (html) => {
+						let m;
+						let chosenItems = this.getChoices(html, modes);
+						if (chosenItems.length > 0)
+							m = chosenItems[0].mode;
+						else
+							m = modes[0];
+						return m;
+					}
+				},
+				cancel: {
+					label: "Cancel",
+					callback: (html) => { return modes[0]; }
+				}
+			},
+			default: "next",
+			close: () => { return modes[0]; },
+			render: (html) => { this.handleChoiceRender(this, html); }
+		});
+	
+		return mode;
 	}
 
 	async itemAdded(item) {
@@ -1846,10 +1878,19 @@ export class BuildCharacter {
 			if (item.system.level <= 0 || item.system.preparation.mode != 'prepared')
 				return;
 			const spellprepmode = item.parent.getFlag('build-character', 'spellprepmode');
-			if (item.parent.getFlag('build-character', 'spellprepmode') == undefined)
-				this.setSpellPrepMode(item.parent);
-			if (spellprepmode && item.system.preparation.mode != spellprepmode) {
-                item.parent.updateEmbeddedDocuments("Item", [{ "_id": item._id, "system.preparation.mode": spellprepmode }]);
+			let prepmode;
+			if (spellprepmode.length == 1) {
+				prepmode = spellprepmode[0];
+			} else if (spellprepmode.length == 0) {
+				prepmode = 'prepared';
+			} else {
+				// Get prepmode from user.
+				prepmode = await this.getPrepMode(item.name, spellprepmode);
+			}
+			if (item.system.preparation.mode != prepmode) {
+                item.parent.updateEmbeddedDocuments("Item", [{
+					"_id": item._id, "system.preparation.mode": prepmode
+				}]);
 			}
 			return;
 		default:
