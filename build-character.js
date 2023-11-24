@@ -1710,24 +1710,25 @@ export class BuildCharacter {
 			return;
 
 		let step0 = am.steps[0];
-		if (step0.type == 'reverse')
-			return;
-		
 		let item = step0?.flow?.item;
-		if (!item || item.type != 'class')
+		if (!item)
+			return;
+		if (item.type != 'class')
 			return;
 
+		await this.readItemData();
+
+		if (step0.type == 'reverse') {
+			await this.initCharacter(am.actor);
+			return;
+		}
+		
 		await this.checkVersion(am.actor);
 
-		if (item.type == 'class' || item.type == 'subclass') {
-			// FIX: for now only handle level 1. In future, could handle adding
-			// spells for drow at levels 3 and 5.
-
+		if (item.type == 'class') {
 			if (step0.class.level > 1)
 				return;
 		}
-
-		await this.readItemData();
 
 		let obj = this.itemData.classes.find(r => item.name == r.name);
 		if (!obj)
@@ -1755,7 +1756,12 @@ export class BuildCharacter {
 				if (!modes.includes(obj.spellprepmode))
 					modes.push(obj.spellprepmode);
 		}
+		
 		await actor.setFlag('build-character', 'spellprepmode', modes);
+	}
+	
+	async initCharacter(actor) {
+		await this.setSpellPrepMode(actor);
 	}
 
 	async checkVersion(actor) {
@@ -1766,7 +1772,7 @@ export class BuildCharacter {
 			// Fix anything that needs fixing to make the character
 			// compatible with this version of the module.
 			await this.readItemData();
-			await this.setSpellPrepMode(actor);
+			await this.initCharacter(actor);
 			await actor.setFlag('build-character', 'version', this.bcVersion);
 		}
 	}
@@ -1862,6 +1868,7 @@ export class BuildCharacter {
 			}
 			break;
 		case 'subclass':
+			this.setSpellPrepMode(item.parent);
 			obj = this.itemData.subclasses.find(r => item.name == r.name);
 			break;
 		case 'race':
@@ -1988,7 +1995,7 @@ export class BuildCharacter {
 	 *	proficiency.
 	 */
 
-	deleteItem(item) {
+	async deleteItem(item) {
 		function deleteItemList(list) {
 			// Don't try to delete items that have already been deleted.
 			let deleteThese = [];
@@ -2012,6 +2019,9 @@ export class BuildCharacter {
 			}
 			return false;
 		}
+
+		if (item.type == 'class' || item.type == 'subclass')
+			await this.initCharacter(item.parent);
 
 		let flags = item?.flags['build-character'];
 		if (!flags)
@@ -2122,7 +2132,7 @@ export class BuildCharacter {
 		Hooks.on("dnd5e.advancementManagerComplete", async function(am) {
 		  let bc = new BuildCharacter();
 		  if (bc)
-			  bc.advancementComplete(am);
+			  await bc.advancementComplete(am);
 		});
 
 		Hooks.on("createItem", async function(item, sheet, data) {
@@ -2131,7 +2141,7 @@ export class BuildCharacter {
 				return;
 			let bc = new BuildCharacter();
 			if (bc)
-				bc.itemAdded(item);
+				await bc.itemAdded(item);
 		});
 
 		Hooks.on("deleteItem", async function(item, sheet, data) {
@@ -2140,8 +2150,10 @@ export class BuildCharacter {
 				return;
 			if (item.flags['build-character']) {
 				let bc = new BuildCharacter();
-				if (bc)
-					bc.deleteItem(item);
+				if (bc) {
+					await bc.readItemData();
+					await bc.deleteItem(item);
+				}
 			}
 		});
 
