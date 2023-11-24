@@ -1777,16 +1777,22 @@ export class BuildCharacter {
 		}
 	}
 	
-	async getPrepMode(spellName, spellPrepMode) {
-		// Find a weapon in the inventory that takes ammo.
+	async getPrepMode(actor, spellName, spellPrepMode) {
+		let spellclasses = actor.items.filter(it => it.type == 'class' || it.type == 'subclass');
 		let modes = [];
-		for (let mode of spellPrepMode)
-			modes.push({"name": CONFIG.DND5E.spellPreparationModes[mode], "mode": mode});
-		prompt = `Choose the preparation mode for ${spellName}.`;
+		for (let c of spellclasses) {
+			let obj = this.itemData.classes.find(r => r.name == c.name);
+			if (!obj)
+				obj = this.itemData.subclasses.find(r => r.name == c.name);
+			if (obj?.spellprepmode)
+				modes.push({name: c.name, mode: obj.spellprepmode});
+		}
+
+		prompt = `Choose the class for ${spellName}.`;
 		let content = this.choiceContent(modes, 1, prompt);
 
 		let mode = await doDialog({
-			title: `Spell Preparation Mode`,
+			title: `Choose Spell Class`,
 			content: content,
 			buttons: {
 				next: {
@@ -1892,7 +1898,7 @@ export class BuildCharacter {
 				prepmode = 'prepared';
 			} else {
 				// Get prepmode from user.
-				prepmode = await this.getPrepMode(item.name, spellprepmode);
+				prepmode = await this.getPrepMode(item.parent, item.name, spellprepmode);
 			}
 			if (item.system.preparation.mode != prepmode) {
                 item.parent.updateEmbeddedDocuments("Item", [{
