@@ -2,5 +2,7 @@
 *.lock
 *.scc
 .gitattributes
-
-
+*.log
+LOCK
+LOG
+*.old
