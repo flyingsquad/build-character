@@ -1656,12 +1656,12 @@ export class BuildCharacter {
 		}
 		
 		function recordAbilities(pb) {
-			actor.update({"data.abilities.str.value": pb.abilities['Strength']});
-			actor.update({"data.abilities.dex.value": pb.abilities['Dexterity']});
-			actor.update({"data.abilities.con.value": pb.abilities['Constitution']});
-			actor.update({"data.abilities.int.value": pb.abilities['Intelligence']});
-			actor.update({"data.abilities.wis.value": pb.abilities['Wisdom']});
-			actor.update({"data.abilities.cha.value": pb.abilities['Charisma']});
+			actor.update({"system.abilities.str.value": pb.abilities['Strength'],
+				"system.abilities.dex.value": pb.abilities['Dexterity'],
+				"system.abilities.con.value": pb.abilities['Constitution'],
+				"system.abilities.int.value": pb.abilities['Intelligence'],
+				"system.abilities.wis.value": pb.abilities['Wisdom'],
+				"system.abilities.cha.value": pb.abilities['Charisma']});
 		}
 		
 		function setAbilities(pb, html) {
@@ -1888,6 +1888,8 @@ export class BuildCharacter {
 			// on character if they come in marked as unprepared (spells added for a class will
 			// have the preparation mode marked, but spells added directly by user
 			// will always be prepared, the default value).
+			if (item.parent.type == 'npc')
+				return;
 			if (item.system.level <= 0 || item.system.preparation.mode != 'prepared')
 				return;
 			const spellprepmode = item.parent.getFlag('build-character', 'spellprepmode');
@@ -2417,4 +2419,4 @@ Hooks.once('init', async function () {
 		game.BuildCharacter = {};
 		game.BuildCharacter.cc = new CreateCharacter();
 	}
-})
+});
